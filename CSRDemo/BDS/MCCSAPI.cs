@@ -1,0 +1,706 @@
+﻿/*
+ * 由SharpDevelop创建。
+ * 用户： BDSNetRunner
+ * 日期: 2020/7/17
+ * 时间: 16:27
+ * 
+ * 要改变这种模板请点击 工具|选项|代码编写|编辑标准头文件
+ */
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+
+namespace CSR
+{
+	/// <summary>
+	/// API接口定义
+	/// </summary>
+	public class MCCSAPI
+	{
+		[DllImport("kernel32.dll")]
+        private extern static IntPtr LoadLibrary(String path);
+        [DllImport("kernel32.dll")]
+        private extern static IntPtr GetProcAddress(IntPtr lib, String funcName);
+        [DllImport("kernel32.dll")]
+        private extern static bool FreeLibrary(IntPtr lib);
+
+        private readonly string mVersion;
+        /// <summary>
+        /// 插件版本
+        /// </summary>
+        public string VERSION {get{return mVersion;}}
+        private readonly bool mcommercial;
+        /// <summary>
+        /// 平台类型
+        /// </summary>
+        public bool COMMERCIAL {get{return mcommercial;}}
+
+		private IntPtr hLib;
+        public MCCSAPI(String DLLPath, string ver, bool commercial)
+        {
+        	mVersion = ver;
+        	mcommercial = commercial;
+            hLib = LoadLibrary(DLLPath);
+            if (hLib != IntPtr.Zero) {
+            	initApis();
+            }
+        }
+        ~MCCSAPI()
+        {
+            FreeLibrary(hLib);
+        }
+        //将要执行的函数转换为委托
+        private Delegate Invoke(String APIName, Type t)
+        {
+            IntPtr api = GetProcAddress(hLib, APIName);
+            if (api != IntPtr.Zero)
+	            return Marshal.GetDelegateForFunctionPointer(api, t);
+            Console.WriteLine("Get Api {0} failed.", APIName);
+            return null;
+        }
+        
+        /// <summary>
+        /// 事件处理函数类型
+        /// </summary>
+        /// <param name="e">原始数据</param>
+        /// <returns>是否继续/拦截(before事件有效)</returns>
+        public delegate bool EventCab(Events e);
+        private delegate bool ADDACTEVENTFUNC(string key, EventCab cb);
+        private ADDACTEVENTFUNC caddBeforeActEvent, caddAfterActEvent, cremoveBeforeAct, cremoveAfterAct;
+		private delegate bool CSHOOKFUNC(int rva, IntPtr hook, out IntPtr org);
+		private CSHOOKFUNC ccshook;
+		private delegate bool CSUNHOOKFUNC(IntPtr hook, out IntPtr org);
+		private CSUNHOOKFUNC ccsunhook;
+		private delegate IntPtr DLSYMFUNC(int rva);
+		private DLSYMFUNC cdlsym;
+		private delegate void SETSHAREPTRFUNC(string key, IntPtr sdata);
+		private SETSHAREPTRFUNC csetshareptr;
+		private delegate IntPtr GETSHAREPTRFUNC(string key);
+		private GETSHAREPTRFUNC cgetSharePtr, cremoveSharePtr;
+		public enum CommandPermissionLevel {
+			Any = 0,
+			GameMasters = 1,
+			Admin = 2,
+			Host = 3,
+			Owner = 4,
+			Internal = 5
+		}
+		public enum CommandVisibilityFlag : byte {
+			Visible = 0,
+			HiddenFromCommandBlockOrigin = 2,
+			HiddenFromPlayerOrigin = 4,
+			Hidden = 6
+		}
+		public enum CommandUsageFlag : byte {
+			Normal = 0,
+			Test = 1
+		}
+		public enum CommandSyncFlag : byte {
+			Synced = 0,
+			Local = 8
+		}
+		public enum CommandExecuteFlag : byte {
+			Allowed = 0,
+			Disallowed = 0x10
+		}
+		public enum CommandTypeFlag : byte {
+			None = 0,
+			Message = 0x20
+		}
+		public enum CommandCheatFlag : byte {
+			Cheat = 0,
+			NotCheat = 0x40
+		}
+		private delegate void SETCOMMANDDESCRIBEFUNC(string key, string description, CommandPermissionLevel level, byte flag1, byte flag2);
+		private SETCOMMANDDESCRIBEFUNC csetCommandDescribe;
+		private delegate bool RUNCMDFUNC(string cmd);
+		private RUNCMDFUNC cruncmd, cremovePlayerBossBar, cremovePlayerSidebar;
+		private delegate void LOGOUTFUNC(string cmdout);
+		private LOGOUTFUNC clogout;
+		private delegate IntPtr GETONLINEPLAYERSFUNC();
+		private GETONLINEPLAYERSFUNC cgetOnLinePlayers;
+		private delegate IntPtr GETSTRUCTUREFUNC(int did, string jsonposa, string jsonposb, bool exent, bool exblk);
+		private GETSTRUCTUREFUNC cgetStructure;
+		private delegate bool SETSTRUCTUREFUNC(string jdata, int did, string jsonposa, char rot, bool exent, bool exblk);
+		private SETSTRUCTUREFUNC csetStructure;
+		private delegate bool RENAMEBYUUIDFUNC(string uuid, string newName);
+		private RENAMEBYUUIDFUNC creNameByUuid, csetPlayerAbilities, csetPlayerTempAttributes,
+			csetPlayerMaxAttributes, csetPlayerItems, caddPlayerItemEx, csetPlayerEffects,
+			ctalkAs, cruncmdAs, csetPlayerPermissionAndGametype;
+		private delegate IntPtr GETPLAYERABILITIESFUNC(string uuid);
+		private GETPLAYERABILITIESFUNC cgetPlayerAbilities, cgetPlayerAttributes, cgetPlayerMaxAttributes,
+			cgetPlayerItems, cgetPlayerSelectedItem, cgetPlayerEffects, cselectPlayer, cgetPlayerPermissionAndGametype;
+		private delegate bool ADDPLAYERITEMFUNC(string uuid, int id, short aux, char count);
+		private ADDPLAYERITEMFUNC caddPlayerItem;
+		private delegate bool SETPLAYERBOSSBARFUNC(string uuid, string title, float percent);
+		private SETPLAYERBOSSBARFUNC csetPlayerBossBar;
+		private delegate bool TRANSFERSERVERFUNC(string uuid, string addr, int port);
+		private TRANSFERSERVERFUNC ctransferserver;
+		private delegate bool TELEPORTFUNC(string uuid, float x, float y, float z, int did);
+		private TELEPORTFUNC cteleport;
+		private delegate uint SENDSIMPLEFORMFUNC(string uuid, string title, string content, string buttons);
+		private SENDSIMPLEFORMFUNC csendSimpleForm;
+		private delegate uint SENDMODALFORMFUNC(string uuid, string title, string content, string button1, string button2);
+		private SENDMODALFORMFUNC csendModalForm;
+		private delegate uint SENDCUSTOMFORMFUNC(string uuid, string json);
+		private SENDCUSTOMFORMFUNC csendCustomForm;
+		private delegate bool RELEASEFORMFUNC(uint fid);
+		private RELEASEFORMFUNC creleaseForm;
+		private delegate bool SETPLAYERSIDEBARFUNC(string uuid, string title, string list);
+		private SETPLAYERSIDEBARFUNC csetPlayerSidebar;
+		private delegate IntPtr GETEXTRAAPI(string apiname);
+		GETEXTRAAPI cgetExtraAPI;
+		
+		// 转换附加函数指针
+        private Delegate ConvertExtraFunc(string apiname, Type t) {
+			if (cgetExtraAPI != null) {
+				IntPtr f = cgetExtraAPI(apiname);
+				if (f != IntPtr.Zero) {
+					return Marshal.GetDelegateForFunctionPointer(f, t);
+				}
+			}
+			Console.WriteLine("Get ExtraApi {0} failed.", apiname);
+            return null;
+        }
+		
+		// 初始化所有api函数
+		void initApis()
+		{
+			caddBeforeActEvent = Invoke("addBeforeActListener", typeof(ADDACTEVENTFUNC)) as ADDACTEVENTFUNC;
+			caddAfterActEvent = Invoke("addAfterActListener", typeof(ADDACTEVENTFUNC)) as ADDACTEVENTFUNC;
+			cremoveBeforeAct = Invoke("removeBeforeActListener", typeof(ADDACTEVENTFUNC)) as ADDACTEVENTFUNC;
+			cremoveAfterAct = Invoke("removeAfterActListener", typeof(ADDACTEVENTFUNC)) as ADDACTEVENTFUNC;
+			csetshareptr = Invoke("setSharePtr", typeof(SETSHAREPTRFUNC)) as SETSHAREPTRFUNC;
+			cgetSharePtr = Invoke("getSharePtr", typeof(GETSHAREPTRFUNC)) as GETSHAREPTRFUNC;
+			cremoveSharePtr = Invoke("removeSharePtr", typeof(GETSHAREPTRFUNC)) as GETSHAREPTRFUNC;
+			csetCommandDescribe = Invoke("setCommandDescribeEx", typeof(SETCOMMANDDESCRIBEFUNC)) as SETCOMMANDDESCRIBEFUNC;
+			cruncmd = Invoke("runcmd", typeof(RUNCMDFUNC)) as RUNCMDFUNC;
+			clogout = Invoke("logout", typeof(LOGOUTFUNC)) as LOGOUTFUNC;
+			cgetOnLinePlayers = Invoke("getOnLinePlayers", typeof(GETONLINEPLAYERSFUNC)) as GETONLINEPLAYERSFUNC;
+			cgetExtraAPI = Invoke("getExtraAPI", typeof(GETEXTRAAPI)) as GETEXTRAAPI;
+			creNameByUuid = Invoke("reNameByUuid", typeof(RENAMEBYUUIDFUNC)) as RENAMEBYUUIDFUNC;
+			ctalkAs = Invoke("talkAs", typeof(RENAMEBYUUIDFUNC)) as RENAMEBYUUIDFUNC;
+			cruncmdAs = Invoke("runcmdAs", typeof(RENAMEBYUUIDFUNC)) as RENAMEBYUUIDFUNC;
+			csendSimpleForm = Invoke("sendSimpleForm", typeof(SENDSIMPLEFORMFUNC)) as SENDSIMPLEFORMFUNC;
+			csendModalForm = Invoke("sendModalForm", typeof(SENDMODALFORMFUNC)) as SENDMODALFORMFUNC;
+			csendCustomForm = Invoke("sendCustomForm", typeof(SENDCUSTOMFORMFUNC)) as SENDCUSTOMFORMFUNC;
+			creleaseForm = Invoke("releaseForm", typeof(RELEASEFORMFUNC)) as RELEASEFORMFUNC;
+			cselectPlayer = Invoke("selectPlayer", typeof(GETPLAYERABILITIESFUNC)) as GETPLAYERABILITIESFUNC;
+			caddPlayerItem = Invoke("addPlayerItem", typeof(ADDPLAYERITEMFUNC)) as ADDPLAYERITEMFUNC;
+			
+			ccshook = Invoke("cshook", typeof(CSHOOKFUNC)) as CSHOOKFUNC;
+			ccsunhook = Invoke("csunhook", typeof(CSUNHOOKFUNC)) as CSUNHOOKFUNC;
+			cdlsym = Invoke("dlsym", typeof(DLSYMFUNC)) as DLSYMFUNC;
+			
+			if (COMMERCIAL) {
+				cgetStructure = ConvertExtraFunc("getStructure", typeof(GETSTRUCTUREFUNC)) as GETSTRUCTUREFUNC;
+				csetStructure = ConvertExtraFunc("setStructure", typeof(SETSTRUCTUREFUNC)) as SETSTRUCTUREFUNC;
+				cgetPlayerAbilities = ConvertExtraFunc("getPlayerAbilities", typeof(GETPLAYERABILITIESFUNC)) as GETPLAYERABILITIESFUNC;
+				csetPlayerAbilities = ConvertExtraFunc("setPlayerAbilities", typeof(RENAMEBYUUIDFUNC)) as RENAMEBYUUIDFUNC;
+				cgetPlayerAttributes = ConvertExtraFunc("getPlayerAttributes", typeof(GETPLAYERABILITIESFUNC)) as GETPLAYERABILITIESFUNC;
+				csetPlayerTempAttributes = ConvertExtraFunc("setPlayerTempAttributes", typeof(RENAMEBYUUIDFUNC)) as RENAMEBYUUIDFUNC;
+				cgetPlayerMaxAttributes = ConvertExtraFunc("getPlayerMaxAttributes", typeof(GETPLAYERABILITIESFUNC)) as GETPLAYERABILITIESFUNC;
+				csetPlayerMaxAttributes = ConvertExtraFunc("setPlayerMaxAttributes", typeof(RENAMEBYUUIDFUNC)) as RENAMEBYUUIDFUNC;
+				cgetPlayerItems = ConvertExtraFunc("getPlayerItems", typeof(GETPLAYERABILITIESFUNC)) as GETPLAYERABILITIESFUNC;
+				csetPlayerItems = ConvertExtraFunc("setPlayerItems", typeof(RENAMEBYUUIDFUNC)) as RENAMEBYUUIDFUNC;
+				cgetPlayerSelectedItem = ConvertExtraFunc("getPlayerSelectedItem", typeof(GETPLAYERABILITIESFUNC)) as GETPLAYERABILITIESFUNC;
+				caddPlayerItemEx = ConvertExtraFunc("addPlayerItemEx", typeof(RENAMEBYUUIDFUNC)) as RENAMEBYUUIDFUNC;
+				cgetPlayerEffects = ConvertExtraFunc("getPlayerEffects", typeof(GETPLAYERABILITIESFUNC)) as GETPLAYERABILITIESFUNC;
+				csetPlayerEffects = ConvertExtraFunc("setPlayerEffects", typeof(RENAMEBYUUIDFUNC)) as RENAMEBYUUIDFUNC;
+				csetPlayerBossBar = ConvertExtraFunc("setPlayerBossBar", typeof(SETPLAYERBOSSBARFUNC)) as SETPLAYERBOSSBARFUNC;
+				cremovePlayerBossBar = ConvertExtraFunc("removePlayerBossBar", typeof(RUNCMDFUNC)) as RUNCMDFUNC;
+				ctransferserver = ConvertExtraFunc("transferserver", typeof(TRANSFERSERVERFUNC)) as TRANSFERSERVERFUNC;
+				cteleport = ConvertExtraFunc("teleport", typeof(TELEPORTFUNC)) as TELEPORTFUNC;
+				csetPlayerSidebar = ConvertExtraFunc("setPlayerSidebar", typeof(SETPLAYERSIDEBARFUNC)) as SETPLAYERSIDEBARFUNC;
+				cremovePlayerSidebar = ConvertExtraFunc("removePlayerSidebar", typeof(RUNCMDFUNC)) as RUNCMDFUNC;
+				cgetPlayerPermissionAndGametype = ConvertExtraFunc("getPlayerPermissionAndGametype", typeof(GETPLAYERABILITIESFUNC)) as GETPLAYERABILITIESFUNC;
+				csetPlayerPermissionAndGametype = ConvertExtraFunc("setPlayerPermissionAndGametype", typeof(RENAMEBYUUIDFUNC)) as RENAMEBYUUIDFUNC;
+			}
+		}
+
+		/// <summary>
+		/// 设置事件发生前监听
+		/// </summary>
+		/// <param name="key"></param>
+		/// <param name="cb"></param>
+		/// <returns></returns>
+		public bool addBeforeActListener(string key, EventCab cb) {
+			return caddBeforeActEvent != null && caddBeforeActEvent(key, cb);
+		}
+		
+		/// <summary>
+		/// 设置事件发生后监听
+		/// </summary>
+		/// <param name="key"></param>
+		/// <param name="cb"></param>
+		/// <returns></returns>
+		public bool addAfterActListener(string key, EventCab cb) {
+			return caddAfterActEvent != null && caddAfterActEvent(key, cb);
+		}
+		
+		/// <summary>
+		/// 移除事件发生前监听
+		/// </summary>
+		/// <param name="key"></param>
+		/// <param name="cb"></param>
+		/// <returns></returns>
+		public bool removeBeforeActListener(string key, EventCab cb) {
+			return cremoveBeforeAct != null && cremoveBeforeAct(key, cb);
+		}
+		
+		/// <summary>
+		/// 移除事件发生后监听
+		/// </summary>
+		/// <param name="key"></param>
+		/// <param name="cb"></param>
+		/// <returns></returns>
+		public bool removeAfterActListener(string key, EventCab cb) {
+			return cremoveAfterAct != null && cremoveAfterAct(key, cb);
+		}
+		
+		/// <summary>
+		/// 设置共享数据（指针）<br/>
+		/// 注：会替换掉旧数据
+		/// </summary>
+		/// <param name="key">关键字</param>
+		/// <param name="data">数据/函数指针</param>
+		public void setSharePtr(string key, IntPtr data) {
+			if (csetshareptr != null)
+				csetshareptr(key, data);
+		}
+		/// <summary>
+		/// 获取共享数据（指针）
+		/// </summary>
+		/// <param name="key">关键字</param>
+		/// <returns></returns>
+		public IntPtr getSharePtr(string key) {
+			return (cgetSharePtr != null) ? cgetSharePtr(key) :
+				IntPtr.Zero;
+		}
+		/// <summary>
+		/// 移除共享数据（指针）
+		/// </summary>
+		/// <param name="key">关键字</param>
+		/// <returns></returns>
+		public IntPtr removeSharePtr(string key) {
+			return (cremoveSharePtr != null) ? cremoveSharePtr(key) :
+				IntPtr.Zero;
+		}
+		/// <summary>
+		/// 设置一个指令说明<br/>
+		/// 备注：延期注册的情况，可能不会改变客户端界面
+		/// </summary>
+		/// <param name="key">命令</param>
+		/// <param name="description">描述</param>
+		/// <param name="level">执行要求等级</param>
+		/// <param name="flag1">命令类型1</param>
+		/// <param name="flag2">命令类型2</param>
+		public void setCommandDescribeEx(string key, string description, CommandPermissionLevel level, byte flag1, byte flag2) {
+			if (csetCommandDescribe != null)
+				csetCommandDescribe(key, description, level, flag1, flag2);
+		}
+		/// <summary>
+		/// 设置一个全局指令描述
+		/// </summary>
+		/// <param name="key">命令</param>
+		/// <param name="description">描述</param>
+		public void setCommandDescribe(string key, string description) {
+			setCommandDescribeEx(key, description, CommandPermissionLevel.Any, (byte)CommandCheatFlag.NotCheat, (byte)CommandVisibilityFlag.Visible);
+		}
+		
+		/// <summary>
+		/// 执行后台指令
+		/// </summary>
+		/// <param name="cmd">语法正确的MC指令</param>
+		/// <returns>是否正常执行</returns>
+		public bool runcmd(string cmd) {
+			return (cruncmd != null) && cruncmd(cmd);
+		}
+		
+		/// <summary>
+		/// 发送一条命令输出消息（可被拦截）<br/>
+		/// 注：末尾附带换行符
+		/// </summary>
+		/// <param name="cmdout">待发送的命令输出字符串</param>
+		public void logout(string cmdout) {
+			if (clogout != null)
+				clogout(cmdout);
+		}
+		
+		/// <summary>
+		/// 获取在线玩家列表
+		/// </summary>
+		/// <returns></returns>
+		public string getOnLinePlayers() {
+			return (cgetOnLinePlayers != null) ? StrTool.readUTF8str(cgetOnLinePlayers()) :
+				string.Empty;
+		}
+		
+		/// <summary>
+		/// 获取一个结构
+		/// </summary>
+		/// <param name="did">地图维度</param>
+		/// <param name="jsonposa">坐标JSON字符串</param>
+		/// <param name="jsonposb">坐标JSON字符串</param>
+		/// <param name="exent">是否导出实体</param>
+		/// <param name="exblk">是否导出方块</param>
+		/// <returns>结构json字符串</returns>
+		public string getStructure(int did, string jsonposa, string jsonposb, bool exent, bool exblk) {
+			return (cgetStructure != null) ? StrTool.readUTF8str(cgetStructure(did, jsonposa, jsonposb, exent, exblk)) :
+				string.Empty;
+		}
+		/// <summary>
+		/// 设置一个结构到指定位置<br/>
+		/// 注：旋转类型包含4种有效旋转类型
+		/// </summary>
+		/// <param name="jdata">结构JSON字符串</param>
+		/// <param name="did">地图维度</param>
+		/// <param name="jsonposa">起始点坐标JSON字符串</param>
+		/// <param name="rot">旋转类型</param>
+		/// <param name="exent">是否导入实体</param>
+		/// <param name="exblk">是否导入方块</param>
+		/// <returns>是否设置成功</returns>
+		public bool setStructure(string jdata, int did, string jsonposa, char rot, bool exent, bool exblk) {
+			return (csetStructure != null) && csetStructure(jdata, did, jsonposa, rot, exent, exblk);
+		}
+		
+		/// <summary>
+		/// 重命名一个指定的玩家名<br/>
+		/// 注：该函数可能不会变更客户端实际显示名
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <param name="newName">新的名称</param>
+		/// <returns>是否命名成功</returns>
+		public bool reNameByUuid(string uuid, string newName) {
+			return (creNameByUuid != null) && creNameByUuid(uuid, newName);
+		}
+		
+		/// <summary>
+		/// 获取玩家能力表<br/>
+		/// 注：含总计18种能力值
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <returns>能力json字符串</returns>
+		public string getPlayerAbilities(string uuid) {
+			return (cgetPlayerAbilities != null) ? StrTool.readUTF8str(cgetPlayerAbilities(uuid)) :
+				string.Empty;
+		}
+		/// <summary>
+		/// 设置玩家能力表<br/>
+		/// 注：该函数可能不会变更客户端实际显示能力
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <param name="abdata">新能力json数据字符串</param>
+		/// <returns>是否设置成功</returns>
+		public bool setPlayerAbilities(string uuid, string abdata) {
+			return (csetPlayerAbilities != null) && csetPlayerAbilities(uuid, abdata);
+		}
+		
+		/// <summary>
+		/// 获取玩家属性表<br/>
+		/// 注：总计14种生物属性，含部分有效玩家属性
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <returns>属性json字符串</returns>
+		public string getPlayerAttributes(string uuid) {
+			return (cgetPlayerAttributes != null) ? StrTool.readUTF8str(cgetPlayerAttributes(uuid)) :
+				string.Empty;
+		}
+		/// <summary>
+		/// 设置玩家属性临时值表<br/>
+		/// 注：该函数可能不会变更客户端实际显示值
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <param name="newTempAttributes">新属性临时值json数据字符串</param>
+		/// <returns>是否设置成功</returns>
+		public bool setPlayerTempAttributes(string uuid, string newTempAttributes) {
+			return (csetPlayerTempAttributes != null) && csetPlayerTempAttributes(uuid, newTempAttributes);
+		}
+		/// <summary>
+		/// 获取玩家属性上限值表
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <returns>属性上限值json字符串</returns>
+		public string getPlayerMaxAttributes(string uuid) {
+			return (cgetPlayerMaxAttributes != null) ? StrTool.readUTF8str(cgetPlayerMaxAttributes(uuid)) :
+				string.Empty;
+		}
+		/// <summary>
+		/// 设置玩家属性上限值表<br/>
+		/// 注：该函数可能不会变更客户端实际显示值
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <param name="newMaxAttributes">新属性上限值json数据字符串</param>
+		/// <returns>是否设置成功</returns>
+		public bool setPlayerMaxAttributes(string uuid, string newMaxAttributes) {
+			return (csetPlayerMaxAttributes != null) && csetPlayerMaxAttributes(uuid, newMaxAttributes);
+		}
+		
+		/// <summary>
+		/// 获取玩家所有物品列表<br/>
+		/// 注：玩家物品包括末影箱、装备、副手和背包四项物品的nbt描述型数据列表。nbt被序列化数据类型的tag所描述，总计12种有效tag，所对应值可序列化为json数据，亦可反序列化为nbt
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <returns>物品列表json字符串</returns>
+		public string getPlayerItems(string uuid) {
+			return (cgetPlayerItems != null) ? StrTool.readUTF8str(cgetPlayerItems(uuid)) :
+				string.Empty;
+		}
+		/// <summary>
+		/// 设置玩家所有物品列表<br/>
+		/// 注：特定条件下可能不会变更游戏内实际物品
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <param name="newItems">新物品列表json数据字符串</param>
+		/// <returns>是否设置成功</returns>
+		public bool setPlayerItems(string uuid, string newItems) {
+			return (csetPlayerItems != null) && csetPlayerItems(uuid, newItems);
+		}
+		/// <summary>
+		/// 获取玩家当前选中项信息<br/>
+		/// 注：选中项包含选中框所处位置，以及选中物品的nbt描述型数据
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <returns>当前选中项信息json字符串</returns>
+		public string getPlayerSelectedItem(string uuid) {
+			return (cgetPlayerSelectedItem != null) ? StrTool.readUTF8str(cgetPlayerSelectedItem(uuid)) :
+				string.Empty;
+		}
+		/// <summary>
+		/// 增加玩家一个物品<br/>
+		/// 注：特定条件下可能不会变更游戏内实际物品
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <param name="item">物品json数据字符串</param>
+		/// <returns>是否添加成功</returns>
+		public bool addPlayerItemEx(string uuid, string item) {
+			return (caddPlayerItemEx != null) && caddPlayerItemEx(uuid, item);
+		}
+		/// <summary>
+		/// 增加玩家一个物品<br/>
+		/// 注：特定条件下可能不会变更游戏内实际物品
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <param name="id">物品id值</param>
+		/// <param name="aux">物品特殊值</param>
+		/// <param name="count">数量</param>
+		/// <returns>是否增加成功</returns>
+		public bool addPlayerItem(string uuid, int id, short aux, char count) {
+			return (caddPlayerItem != null) && caddPlayerItem(uuid, id, aux, count);
+		}
+		/// <summary>
+		/// 获取玩家所有效果列表
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <returns>效果列表json字符串</returns>
+		public string getPlayerEffects(string uuid) {
+			return (cgetPlayerEffects != null) ? StrTool.readUTF8str(cgetPlayerEffects(uuid)) :
+				string.Empty;
+		}
+		/// <summary>
+		/// 设置玩家所有效果列表<br/>
+		/// 注：特定条件下可能不会变更游戏内实际界面
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <param name="newEffects">新效果列表json数据字符串</param>
+		/// <returns>是否设置成功</returns>
+		public bool setPlayerEffects(string uuid, string newEffects) {
+			return (csetPlayerEffects != null) && csetPlayerEffects(uuid, newEffects);
+		}
+		
+		/// <summary>
+		/// 设置玩家自定义血条
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <param name="title">血条标题</param>
+		/// <param name="percent">血条百分比</param>
+		/// <returns></returns>
+		public bool setPlayerBossBar(string uuid, string title, float percent) {
+			return (csetPlayerBossBar != null) && csetPlayerBossBar(uuid, title, percent);
+		}
+		/// <summary>
+		/// 清除玩家自定义血条
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <returns>是否清除成功</returns>
+		public bool removePlayerBossBar(string uuid) {
+			return (cremovePlayerBossBar != null) && cremovePlayerBossBar(uuid);
+		}
+		
+		/// <summary>
+		/// 查询在线玩家基本信息
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <returns>玩家基本信息json字符串</returns>
+		public string selectPlayer(string uuid) {
+			return (cselectPlayer != null) ? StrTool.readUTF8str(cselectPlayer(uuid)) :
+				string.Empty;
+		}
+		
+		/// <summary>
+		/// 传送玩家至指定服务器
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <param name="addr">待传服务器</param>
+		/// <param name="port">端口</param>
+		/// <returns>是否传送成功</returns>
+		public bool transferserver(string uuid, string addr, int port) {
+			return (ctransferserver != null) && ctransferserver(uuid, addr, port);
+		}
+		/// <summary>
+		/// 传送玩家至指定坐标和维度
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <param name="x"></param>
+		/// <param name="y"></param>
+		/// <param name="z"></param>
+		/// <param name="did">维度ID</param>
+		/// <returns>是否传送成功</returns>
+		public bool teleport(string uuid, float x, float y, float z, int did) {
+			return (cteleport != null) && cteleport(uuid, x, y, z, did);
+		}
+		/// <summary>
+		/// 模拟玩家发送一个文本
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <param name="msg">待模拟发送的文本</param>
+		/// <returns>是否发送成功</returns>
+		public bool talkAs(string uuid, string msg) {
+			return (ctalkAs != null) && ctalkAs(uuid, msg);
+		}
+		/// <summary>
+		/// 模拟玩家执行一个指令
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <param name="cmd">待模拟执行的指令</param>
+		/// <returns>是否发送成功</returns>
+		public bool runcmdAs(string uuid, string cmd) {
+			return (cruncmdAs != null) && cruncmdAs(uuid, cmd);
+		}
+		
+		/// <summary>
+		/// 向指定的玩家发送一个简单表单
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <param name="title">表单标题</param>
+		/// <param name="content">内容</param>
+		/// <param name="buttons">按钮文本数组字符串</param>
+		/// <returns>创建的表单id，为 0 表示发送失败</returns>
+		public uint sendSimpleForm(string uuid, string title, string content, string buttons) {
+			return (csendSimpleForm != null) ? csendSimpleForm(uuid, title, content, buttons) :
+				0;
+		}
+		/// <summary>
+		/// 向指定的玩家发送一个模式对话框
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <param name="title">表单标题</param>
+		/// <param name="content">内容</param>
+		/// <param name="button1">按钮1标题（点击该按钮selected为true）</param>
+		/// <param name="button2">按钮2标题（点击该按钮selected为false）</param>
+		/// <returns>创建的表单id，为 0 表示发送失败</returns>
+		public uint sendModalForm(string uuid, string title, string content, string button1, string button2) {
+			return (csendModalForm != null) ? csendModalForm(uuid, title, content, button1, button2) :
+				0;
+		}
+		/// <summary>
+		/// 向指定的玩家发送一个自定义表单
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <param name="json">自定义表单的json字符串<br/>
+		/// （要使用自定义表单类型，参考nk、pm格式或minebbs专栏）</param>
+		/// <returns>创建的表单id，为 0 表示发送失败</returns>
+		public uint sendCustomForm(string uuid, string json) {
+			return (csendCustomForm != null) ? csendCustomForm(uuid, json) :
+				0;
+		}
+		/// <summary>
+		/// 放弃一个表单<br/>
+		/// 注：已被接收到的表单会被自动释放
+		/// </summary>
+		/// <param name="formid">表单id</param>
+		/// <returns>是否释放成功</returns>
+		public bool releaseForm(uint formid) {
+			return (creleaseForm != null) && creleaseForm(formid);
+		}
+		
+		/// <summary>
+		/// 设置玩家自定义侧边栏临时计分板<br/>
+		/// 注：列表总是从第1行开始，总计不超过15行
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <param name="title">侧边栏标题</param>
+		/// <param name="list">列表字符串数组</param>
+		/// <returns>是否设置成功</returns>
+		public bool setPlayerSidebar(string uuid, string title, string list) {
+			return (csetPlayerSidebar != null) && csetPlayerSidebar(uuid, title, list);
+		}
+		/// <summary>
+		/// 清除玩家自定义侧边栏
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <returns>是否清除成功</returns>
+		public bool removePlayerSidebar(string uuid) {
+			return (cremovePlayerSidebar != null) && cremovePlayerSidebar(uuid);
+		}
+		
+		/// <summary>
+		/// 获取玩家权限与游戏模式<br/>
+		/// 注：OP命令等级包含6个有效等级[op-permission-level]，权限包含3种有效权限[permissions.json]，游戏模式包含5种有效模式[gamemode]
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <returns>权限与模式的json字符串</returns>
+		public string getPlayerPermissionAndGametype(string uuid) {
+			return (cgetPlayerPermissionAndGametype != null) ? StrTool.readUTF8str(cgetPlayerPermissionAndGametype(uuid)) :
+				string.Empty;
+		}
+		/// <summary>
+		/// 设置玩家权限与游戏模式<br/>
+		/// 注：特定条件下可能不会变更游戏内实际能力
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <param name="newModes">新权限或模式json数据字符串</param>
+		/// <returns>是否设置成功</returns>
+		public bool setPlayerPermissionAndGametype(string uuid, string newModes) {
+			return (csetPlayerPermissionAndGametype != null) && csetPlayerPermissionAndGametype(uuid, newModes);
+		}
+
+		// 底层相关
+		
+		/// <summary>
+		/// 设置一个钩子
+		/// </summary>
+		/// <param name="rva">原型函数相对地址</param>
+		/// <param name="hook">新函数</param>
+		/// <param name="org">待保存原型函数的指针</param>
+		/// <returns></returns>
+		public bool cshook(int rva, IntPtr hook, out IntPtr org)
+        {
+			IntPtr sorg = IntPtr.Zero;
+            var ret = ccshook != null && ccshook(rva, hook, out sorg);
+            org = sorg;
+            return ret;
+        }
+		/// <summary>
+		/// 卸载一个钩子
+		/// </summary>
+		/// <param name="hook">待卸载的函数</param>
+		/// <param name="org">已保存了原型函数的指针</param>
+		/// <returns></returns>
+		public bool csunhook(IntPtr hook, ref IntPtr org) {
+			IntPtr sorg = org;
+			var ret = ccsunhook != null && ccsunhook(hook, out sorg);
+			org = sorg;
+			return ret;
+		}
+		/// <summary>
+		/// 取相对地址对应的实际指针
+		/// </summary>
+		/// <param name="rva"></param>
+		/// <returns></returns>
+		public IntPtr dlsym(int rva) {
+			return cdlsym != null ? cdlsym(rva) :
+				IntPtr.Zero;
+		}
+	}
+}
