@@ -50,11 +50,13 @@ namespace CSR
             FreeLibrary(hLib);
         }
         //将要执行的函数转换为委托
-        private Delegate Invoke(String APIName, Type t)
+        private T Invoke<T>(String APIName) where T : Delegate
         {
             IntPtr api = GetProcAddress(hLib, APIName);
             if (api != IntPtr.Zero)
-	            return Marshal.GetDelegateForFunctionPointer(api, t);
+	            return (T)Marshal.GetDelegateForFunctionPointer(api, typeof(T));
+				//若.net framework版本高于4.5.1可用以下替换以上
+				//return Marshal.GetDelegateForFunctionPointer<T>(api);
             Console.WriteLine("Get Api {0} failed.", APIName);
             return null;
         }
@@ -154,11 +156,14 @@ namespace CSR
 		GETEXTRAAPI cgetExtraAPI;
 		
 		// 转换附加函数指针
-        private Delegate ConvertExtraFunc(string apiname, Type t) {
+        private T ConvertExtraFunc<T>(string apiname)  where T : Delegate
+		{
 			if (cgetExtraAPI != null) {
 				IntPtr f = cgetExtraAPI(apiname);
 				if (f != IntPtr.Zero) {
-					return Marshal.GetDelegateForFunctionPointer(f, t);
+					return (T)Marshal.GetDelegateForFunctionPointer(f, typeof(T));
+					//若.net framework版本高于4.5.1可用以下替换以上
+					//return Marshal.GetDelegateForFunctionPointer<T>(f);
 				}
 			}
 			Console.WriteLine("Get ExtraApi {0} failed.", apiname);
@@ -168,55 +173,55 @@ namespace CSR
 		// 初始化所有api函数
 		void initApis()
 		{
-			caddBeforeActEvent = Invoke("addBeforeActListener", typeof(ADDACTEVENTFUNC)) as ADDACTEVENTFUNC;
-			caddAfterActEvent = Invoke("addAfterActListener", typeof(ADDACTEVENTFUNC)) as ADDACTEVENTFUNC;
-			cremoveBeforeAct = Invoke("removeBeforeActListener", typeof(ADDACTEVENTFUNC)) as ADDACTEVENTFUNC;
-			cremoveAfterAct = Invoke("removeAfterActListener", typeof(ADDACTEVENTFUNC)) as ADDACTEVENTFUNC;
-			csetshareptr = Invoke("setSharePtr", typeof(SETSHAREPTRFUNC)) as SETSHAREPTRFUNC;
-			cgetSharePtr = Invoke("getSharePtr", typeof(GETSHAREPTRFUNC)) as GETSHAREPTRFUNC;
-			cremoveSharePtr = Invoke("removeSharePtr", typeof(GETSHAREPTRFUNC)) as GETSHAREPTRFUNC;
-			csetCommandDescribe = Invoke("setCommandDescribeEx", typeof(SETCOMMANDDESCRIBEFUNC)) as SETCOMMANDDESCRIBEFUNC;
-			cruncmd = Invoke("runcmd", typeof(RUNCMDFUNC)) as RUNCMDFUNC;
-			clogout = Invoke("logout", typeof(LOGOUTFUNC)) as LOGOUTFUNC;
-			cgetOnLinePlayers = Invoke("getOnLinePlayers", typeof(GETONLINEPLAYERSFUNC)) as GETONLINEPLAYERSFUNC;
-			cgetExtraAPI = Invoke("getExtraAPI", typeof(GETEXTRAAPI)) as GETEXTRAAPI;
-			creNameByUuid = Invoke("reNameByUuid", typeof(RENAMEBYUUIDFUNC)) as RENAMEBYUUIDFUNC;
-			ctalkAs = Invoke("talkAs", typeof(RENAMEBYUUIDFUNC)) as RENAMEBYUUIDFUNC;
-			cruncmdAs = Invoke("runcmdAs", typeof(RENAMEBYUUIDFUNC)) as RENAMEBYUUIDFUNC;
-			csendSimpleForm = Invoke("sendSimpleForm", typeof(SENDSIMPLEFORMFUNC)) as SENDSIMPLEFORMFUNC;
-			csendModalForm = Invoke("sendModalForm", typeof(SENDMODALFORMFUNC)) as SENDMODALFORMFUNC;
-			csendCustomForm = Invoke("sendCustomForm", typeof(SENDCUSTOMFORMFUNC)) as SENDCUSTOMFORMFUNC;
-			creleaseForm = Invoke("releaseForm", typeof(RELEASEFORMFUNC)) as RELEASEFORMFUNC;
-			cselectPlayer = Invoke("selectPlayer", typeof(GETPLAYERABILITIESFUNC)) as GETPLAYERABILITIESFUNC;
-			caddPlayerItem = Invoke("addPlayerItem", typeof(ADDPLAYERITEMFUNC)) as ADDPLAYERITEMFUNC;
-			cgetscoreboardValue = Invoke("getscoreboardValue", typeof(GETSCOREBOARDVALUEFUNC)) as GETSCOREBOARDVALUEFUNC;
-			ccshook = Invoke("cshook", typeof(CSHOOKFUNC)) as CSHOOKFUNC;
-			ccsunhook = Invoke("csunhook", typeof(CSUNHOOKFUNC)) as CSUNHOOKFUNC;
-			cdlsym = Invoke("dlsym", typeof(DLSYMFUNC)) as DLSYMFUNC;
+			caddBeforeActEvent = Invoke<ADDACTEVENTFUNC>("addBeforeActListener");
+			caddAfterActEvent = Invoke<ADDACTEVENTFUNC>("addAfterActListener");
+			cremoveBeforeAct = Invoke<ADDACTEVENTFUNC>("removeBeforeActListener");
+			cremoveAfterAct = Invoke<ADDACTEVENTFUNC>("removeAfterActListener");
+			csetshareptr = Invoke<SETSHAREPTRFUNC>("setSharePtr");
+			cgetSharePtr = Invoke<GETSHAREPTRFUNC>("getSharePtr");
+			cremoveSharePtr = Invoke<GETSHAREPTRFUNC>("removeSharePtr");
+			csetCommandDescribe = Invoke<SETCOMMANDDESCRIBEFUNC>("setCommandDescribeEx");
+			cruncmd = Invoke<RUNCMDFUNC>("runcmd");
+			clogout = Invoke<LOGOUTFUNC>("logout");
+			cgetOnLinePlayers = Invoke<GETONLINEPLAYERSFUNC>("getOnLinePlayers");
+			cgetExtraAPI = Invoke<GETEXTRAAPI>("getExtraAPI");
+			creNameByUuid = Invoke<RENAMEBYUUIDFUNC>("reNameByUuid");
+			ctalkAs = Invoke<RENAMEBYUUIDFUNC>("talkAs");
+			cruncmdAs = Invoke<RENAMEBYUUIDFUNC>("runcmdAs");
+			csendSimpleForm = Invoke<SENDSIMPLEFORMFUNC>("sendSimpleForm");
+			csendModalForm = Invoke<SENDMODALFORMFUNC>("sendModalForm");
+			csendCustomForm = Invoke<SENDCUSTOMFORMFUNC>("sendCustomForm");
+			creleaseForm = Invoke<RELEASEFORMFUNC>("releaseForm");
+			cselectPlayer = Invoke<GETPLAYERABILITIESFUNC>("selectPlayer");
+			caddPlayerItem = Invoke<ADDPLAYERITEMFUNC>("addPlayerItem");
+			cgetscoreboardValue = Invoke<GETSCOREBOARDVALUEFUNC>("getscoreboardValue");
+			ccshook = Invoke<CSHOOKFUNC>("cshook");
+			ccsunhook = Invoke<CSUNHOOKFUNC>("csunhook");
+			cdlsym = Invoke<DLSYMFUNC>("dlsym");
 			
 			if (COMMERCIAL) {
-				cgetStructure = ConvertExtraFunc("getStructure", typeof(GETSTRUCTUREFUNC)) as GETSTRUCTUREFUNC;
-				csetStructure = ConvertExtraFunc("setStructure", typeof(SETSTRUCTUREFUNC)) as SETSTRUCTUREFUNC;
-				cgetPlayerAbilities = ConvertExtraFunc("getPlayerAbilities", typeof(GETPLAYERABILITIESFUNC)) as GETPLAYERABILITIESFUNC;
-				csetPlayerAbilities = ConvertExtraFunc("setPlayerAbilities", typeof(RENAMEBYUUIDFUNC)) as RENAMEBYUUIDFUNC;
-				cgetPlayerAttributes = ConvertExtraFunc("getPlayerAttributes", typeof(GETPLAYERABILITIESFUNC)) as GETPLAYERABILITIESFUNC;
-				csetPlayerTempAttributes = ConvertExtraFunc("setPlayerTempAttributes", typeof(RENAMEBYUUIDFUNC)) as RENAMEBYUUIDFUNC;
-				cgetPlayerMaxAttributes = ConvertExtraFunc("getPlayerMaxAttributes", typeof(GETPLAYERABILITIESFUNC)) as GETPLAYERABILITIESFUNC;
-				csetPlayerMaxAttributes = ConvertExtraFunc("setPlayerMaxAttributes", typeof(RENAMEBYUUIDFUNC)) as RENAMEBYUUIDFUNC;
-				cgetPlayerItems = ConvertExtraFunc("getPlayerItems", typeof(GETPLAYERABILITIESFUNC)) as GETPLAYERABILITIESFUNC;
-				csetPlayerItems = ConvertExtraFunc("setPlayerItems", typeof(RENAMEBYUUIDFUNC)) as RENAMEBYUUIDFUNC;
-				cgetPlayerSelectedItem = ConvertExtraFunc("getPlayerSelectedItem", typeof(GETPLAYERABILITIESFUNC)) as GETPLAYERABILITIESFUNC;
-				caddPlayerItemEx = ConvertExtraFunc("addPlayerItemEx", typeof(RENAMEBYUUIDFUNC)) as RENAMEBYUUIDFUNC;
-				cgetPlayerEffects = ConvertExtraFunc("getPlayerEffects", typeof(GETPLAYERABILITIESFUNC)) as GETPLAYERABILITIESFUNC;
-				csetPlayerEffects = ConvertExtraFunc("setPlayerEffects", typeof(RENAMEBYUUIDFUNC)) as RENAMEBYUUIDFUNC;
-				csetPlayerBossBar = ConvertExtraFunc("setPlayerBossBar", typeof(SETPLAYERBOSSBARFUNC)) as SETPLAYERBOSSBARFUNC;
-				cremovePlayerBossBar = ConvertExtraFunc("removePlayerBossBar", typeof(RUNCMDFUNC)) as RUNCMDFUNC;
-				ctransferserver = ConvertExtraFunc("transferserver", typeof(TRANSFERSERVERFUNC)) as TRANSFERSERVERFUNC;
-				cteleport = ConvertExtraFunc("teleport", typeof(TELEPORTFUNC)) as TELEPORTFUNC;
-				csetPlayerSidebar = ConvertExtraFunc("setPlayerSidebar", typeof(SETPLAYERSIDEBARFUNC)) as SETPLAYERSIDEBARFUNC;
-				cremovePlayerSidebar = ConvertExtraFunc("removePlayerSidebar", typeof(RUNCMDFUNC)) as RUNCMDFUNC;
-				cgetPlayerPermissionAndGametype = ConvertExtraFunc("getPlayerPermissionAndGametype", typeof(GETPLAYERABILITIESFUNC)) as GETPLAYERABILITIESFUNC;
-				csetPlayerPermissionAndGametype = ConvertExtraFunc("setPlayerPermissionAndGametype", typeof(RENAMEBYUUIDFUNC)) as RENAMEBYUUIDFUNC;
+				cgetStructure = ConvertExtraFunc<GETSTRUCTUREFUNC>("getStructure");
+				csetStructure = ConvertExtraFunc<SETSTRUCTUREFUNC>("setStructure");
+				cgetPlayerAbilities = ConvertExtraFunc<GETPLAYERABILITIESFUNC>("getPlayerAbilities");
+				csetPlayerAbilities = ConvertExtraFunc<RENAMEBYUUIDFUNC>("setPlayerAbilities");
+				cgetPlayerAttributes = ConvertExtraFunc<GETPLAYERABILITIESFUNC>("getPlayerAttributes");
+				csetPlayerTempAttributes = ConvertExtraFunc<RENAMEBYUUIDFUNC>("setPlayerTempAttributes");
+				cgetPlayerMaxAttributes = ConvertExtraFunc<GETPLAYERABILITIESFUNC>("getPlayerMaxAttributes");
+				csetPlayerMaxAttributes = ConvertExtraFunc<RENAMEBYUUIDFUNC>("setPlayerMaxAttributes");
+				cgetPlayerItems = ConvertExtraFunc<GETPLAYERABILITIESFUNC>("getPlayerItems");
+				csetPlayerItems = ConvertExtraFunc<RENAMEBYUUIDFUNC>("setPlayerItems");
+				cgetPlayerSelectedItem = ConvertExtraFunc<GETPLAYERABILITIESFUNC>("getPlayerSelectedItem");
+				caddPlayerItemEx = ConvertExtraFunc<RENAMEBYUUIDFUNC>("addPlayerItemEx");
+				cgetPlayerEffects = ConvertExtraFunc<GETPLAYERABILITIESFUNC>("getPlayerEffects");
+				csetPlayerEffects = ConvertExtraFunc<RENAMEBYUUIDFUNC>("setPlayerEffects");
+				csetPlayerBossBar = ConvertExtraFunc<SETPLAYERBOSSBARFUNC>("setPlayerBossBar");
+				cremovePlayerBossBar = ConvertExtraFunc<RUNCMDFUNC>("removePlayerBossBar");
+				ctransferserver = ConvertExtraFunc<TRANSFERSERVERFUNC>("transferserver");
+				cteleport = ConvertExtraFunc<TELEPORTFUNC>("teleport");
+				csetPlayerSidebar = ConvertExtraFunc<SETPLAYERSIDEBARFUNC>("setPlayerSidebar");
+				cremovePlayerSidebar = ConvertExtraFunc<RUNCMDFUNC>("removePlayerSidebar");
+				cgetPlayerPermissionAndGametype = ConvertExtraFunc<GETPLAYERABILITIESFUNC>("getPlayerPermissionAndGametype");
+				csetPlayerPermissionAndGametype = ConvertExtraFunc<RENAMEBYUUIDFUNC>("setPlayerPermissionAndGametype");
 			}
 		}
 
