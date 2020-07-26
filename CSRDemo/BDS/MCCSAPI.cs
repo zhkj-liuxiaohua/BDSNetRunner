@@ -148,6 +148,8 @@ namespace CSR
 		private RELEASEFORMFUNC creleaseForm;
 		private delegate bool SETPLAYERSIDEBARFUNC(string uuid, string title, string list);
 		private SETPLAYERSIDEBARFUNC csetPlayerSidebar;
+		private delegate int GETSCOREBOARDVALUEFUNC(string uuid, string objname);
+		private GETSCOREBOARDVALUEFUNC cgetscoreboardValue;
 		private delegate IntPtr GETEXTRAAPI(string apiname);
 		GETEXTRAAPI cgetExtraAPI;
 		
@@ -187,7 +189,7 @@ namespace CSR
 			creleaseForm = Invoke("releaseForm", typeof(RELEASEFORMFUNC)) as RELEASEFORMFUNC;
 			cselectPlayer = Invoke("selectPlayer", typeof(GETPLAYERABILITIESFUNC)) as GETPLAYERABILITIESFUNC;
 			caddPlayerItem = Invoke("addPlayerItem", typeof(ADDPLAYERITEMFUNC)) as ADDPLAYERITEMFUNC;
-			
+			cgetscoreboardValue = Invoke("getscoreboardValue", typeof(GETSCOREBOARDVALUEFUNC)) as GETSCOREBOARDVALUEFUNC;
 			ccshook = Invoke("cshook", typeof(CSHOOKFUNC)) as CSHOOKFUNC;
 			ccsunhook = Invoke("csunhook", typeof(CSUNHOOKFUNC)) as CSUNHOOKFUNC;
 			cdlsym = Invoke("dlsym", typeof(DLSYMFUNC)) as DLSYMFUNC;
@@ -665,8 +667,24 @@ namespace CSR
 			return (csetPlayerPermissionAndGametype != null) && csetPlayerPermissionAndGametype(uuid, newModes);
 		}
 
+		// 社区贡献
+
+		/// <summary>
+		/// 获取指定玩家指定计分板上的数值<br/>
+		/// 注：特定情况下会自动创建计分板
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <param name="objname">计分板登记的名称</param>
+		/// <returns>获取的目标值，若目标不存在则返回0</returns>
+		public int getscoreboard(string uuid, string objname)
+        {
+			return (cgetscoreboardValue != null) ? cgetscoreboardValue(uuid, objname) :
+				0;
+        }
+
+
 		// 底层相关
-		
+
 		/// <summary>
 		/// 设置一个钩子
 		/// </summary>

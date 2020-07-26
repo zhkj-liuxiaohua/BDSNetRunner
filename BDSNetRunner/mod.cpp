@@ -1240,7 +1240,7 @@ UINT sendCustomForm(char* uuid, char* json) {
 #if (MODULE_05007)
 
 // 函数名：getscorebroardValue
-// 功能：获取指定玩家指定积分板上的数值
+// 功能：获取指定玩家指定计分板上的数值
 // 参数个数：2个
 // 参数类型：字符串，字符串
 // 参数详解：uuid - 在线玩家的uuid字符串，objname - 计分板登记的名称
