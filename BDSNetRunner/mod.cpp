@@ -1237,6 +1237,24 @@ UINT sendCustomForm(char* uuid, char* json) {
 	return sendForm(uuid, ujson);
 }
 
+#if (MODULE_05007)
+
+// 函数名：getscorebroardValue
+// 功能：获取指定玩家指定积分板上的数值
+// 参数个数：2个
+// 参数类型：字符串，字符串
+// 参数详解：uuid - 在线玩家的uuid字符串，objname - 计分板登记的名称
+// 返回值：获取的目标值，若目标不存在则发信一条创建指令
+int getscoreboardValue(const char* uuid, const char* objname) {
+	Player* p = onlinePlayers[uuid];
+	if (!playerSign[p])
+		return 0;
+	auto oname = GBKToUTF8(objname);
+	return getscoreboard(p, oname);
+}
+
+#endif
+
 // 附加玩家信息
 static void addPlayerInfo(PlayerEvent* pe, Player* p) {
 	autoByteCpy(&pe->playername, p->getNameTag().c_str());

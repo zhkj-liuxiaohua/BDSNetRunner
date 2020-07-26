@@ -4,11 +4,16 @@
 // 社区版/商业版
 #define COMMERCIAL 0
 
+// 标识贡献者 05007
+#define MODULE_05007 1
+
 extern void init();
 extern void exit();
 extern void initMods();
 
 #define MCCSAPI extern "C" __declspec (dllexport)
+#define MCCPPAPI extern "C" __declspec (dllexport)
+
 
 // 设置c#一个通用指针
 MCCSAPI void setSharePtr(const char*, void*);
@@ -54,6 +59,15 @@ MCCSAPI bool addPlayerItem(const char*, int, short, char);
 
 // 从此处获取额外API
 MCCSAPI void* getExtraAPI(const char*);
+
+// 来自社区贡献
+
+#if MODULE_05007
+// 获取计分板值
+MCCPPAPI int getscoreboard(Player*, std::string);
+// C#可用获取计分板值
+MCCSAPI int getscoreboardValue(const char*, const char*);
+#endif
 
 
 #if (COMMERCIAL)

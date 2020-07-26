@@ -25,6 +25,9 @@
     <Filter Include="符号工具">
       <UniqueIdentifier>{e3443547-d4e7-432c-bf96-1973e43f4a80}</UniqueIdentifier>
     </Filter>
+    <Filter Include="scoreboard">
+      <UniqueIdentifier>{4955dd28-1b51-4530-9b5c-3a704d510fe1}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -57,6 +60,9 @@
     <ClInclude Include="tick\tick.h">
       <Filter>tick</Filter>
     </ClInclude>
+    <ClInclude Include="scoreboard\scoreboard.hpp">
+      <Filter>scoreboard</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
@@ -73,6 +79,9 @@
     </ClCompile>
     <ClCompile Include="tick\tick.cpp">
       <Filter>tick</Filter>
+    </ClCompile>
+    <ClCompile Include="scoreboard\scoreboard.cpp">
+      <Filter>scoreboard</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
