@@ -3,13 +3,13 @@
 
 #if (MODULE_05007)
 
-static Scoreboard* scoreboard;//å‚¨å­˜è®¡åˆ†æ¿åç§°
+static Scoreboard* scoreboard;//´¢´æ¼Æ·Ö°åÃû³Æ
 
-//è·å–ç©å®¶åœ¨æŒ‡å®šè®¡åˆ†æ¿ä¸‹çš„å†…å®¹ï¼ˆè¿”å›æ•´æ•°ï¼Œåœ¨è¿™ä¸ªè®¡åˆ†æ¿ä¸‹è¿™ä¸ªç©å®¶çš„å€¼ï¼‰
+//»ñÈ¡Íæ¼ÒÔÚÖ¸¶¨¼Æ·Ö°åÏÂµÄÄÚÈİ£¨·µ»ØÕûÊı£¬ÔÚÕâ¸ö¼Æ·Ö°åÏÂÕâ¸öÍæ¼ÒµÄÖµ£©
 int getscoreboard(Player* p,std::string objname) {
 	auto testobj = scoreboard->getobject(&objname);
 	if (!testobj) {
-		std::cout << u8"æ²¡æœ‰æ‰¾åˆ°å¯¹åº”è®¡åˆ†æ¿ï¼Œè‡ªåŠ¨åˆ›å»º: " << objname << std::endl;
+		std::cout << u8"Ã»ÓĞÕÒµ½¶ÔÓ¦¼Æ·Ö°å£¬×Ô¶¯´´½¨: " << objname << std::endl;
 		std::string cmd = "scoreboard objectives add \"" + objname + "\" dummy money";
 		runcmd(cmd.c_str());
 		return 0;
@@ -22,7 +22,7 @@ int getscoreboard(Player* p,std::string objname) {
 	return (__int64)scores->getcount();
 }
 
-// è®¡åˆ†æ¿å‘½ä»¤æ³¨å†Œï¼ˆå¼€æœæ—¶è·å–æ‰€æœ‰çš„è®¡åˆ†æ¿åç§°ï¼‰
+// ¼Æ·Ö°åÃüÁî×¢²á£¨¿ª·şÊ±»ñÈ¡ËùÓĞµÄ¼Æ·Ö°åÃû³Æ£©
 THook(void*, MSSYM_B2QQE170ServerScoreboardB2AAA4QEAAB1AE24VCommandSoftEnumRegistryB2AAE16PEAVLevelStorageB3AAAA1Z, void* _this, void* a2, void* a3) {
 	scoreboard = (Scoreboard*)original(_this, a2, a3);
 	return scoreboard;

@@ -3,8 +3,6 @@
 
 #if (MODULE_05007)
 
-extern int getscoreboard(Player*, std::string);
-
 //结构体===============================================================================================================
 
 //摘自计分板转bdxmoney项目：https://github.com/kkj9333/BDS--

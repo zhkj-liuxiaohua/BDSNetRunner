@@ -62,6 +62,12 @@ struct ACTEVENT {
 	const std::string ONINPUTTEXT = u8"onInputText";
 	const std::string ONINPUTCOMMAND = u8"onInputCommand";
 	const std::string ONLEVELEXPLODE = u8"onLevelExplode";
+#if (COMMERCIAL)
+	const std::string ONMOBHURT = u8"onMobHurt";
+	const std::string ONBLOCKCMD = u8"onBlockCmd";
+	const std::string ONNPCCMD = u8"onNpcCmd";
+	const std::string ONCOMMANDBLOCKUPDATE = u8"onCommandBlockUpdate";
+#endif
 };
 
 struct Events {

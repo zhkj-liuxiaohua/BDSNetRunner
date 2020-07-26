@@ -198,8 +198,9 @@ namespace CSR
 			ccshook = Invoke<CSHOOKFUNC>("cshook");
 			ccsunhook = Invoke<CSUNHOOKFUNC>("csunhook");
 			cdlsym = Invoke<DLSYMFUNC>("dlsym");
-			
-			if (COMMERCIAL) {
+
+            #region 非社区部分内容
+            if (COMMERCIAL) {
 				cgetStructure = ConvertExtraFunc<GETSTRUCTUREFUNC>("getStructure");
 				csetStructure = ConvertExtraFunc<SETSTRUCTUREFUNC>("setStructure");
 				cgetPlayerAbilities = ConvertExtraFunc<GETPLAYERABILITIESFUNC>("getPlayerAbilities");
@@ -223,6 +224,7 @@ namespace CSR
 				cgetPlayerPermissionAndGametype = ConvertExtraFunc<GETPLAYERABILITIESFUNC>("getPlayerPermissionAndGametype");
 				csetPlayerPermissionAndGametype = ConvertExtraFunc<RENAMEBYUUIDFUNC>("setPlayerPermissionAndGametype");
 			}
+			#endregion
 		}
 
 		/// <summary>
