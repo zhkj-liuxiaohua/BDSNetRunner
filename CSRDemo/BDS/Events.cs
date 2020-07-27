@@ -185,6 +185,14 @@ namespace CSR
 		public float x, y, z;
 	}
 	
+    public struct Std_String {
+		public IntPtr data;
+		public ulong sd;
+		public ulong len;
+		public ulong uk3;
+	}
+
+
 	public class StrTool {
 		[DllImport("kernel32.dll", CharSet = CharSet.Ansi, ExactSpelling = true)]
 		internal static extern int lstrlenA(IntPtr ptr);
@@ -206,6 +214,27 @@ namespace CSR
 		// 四字节转浮点
 		public static float itof(int x) {
 			return BitConverter.ToSingle(BitConverter.GetBytes(x), 0);
+		}
+		// std::string中读取c_str
+		public static string c_str(Std_String s)
+        {
+			try
+            {
+				if (s.len < 1)
+					return String.Empty;
+				if (s.len < 16)
+				{
+					byte[] c = BitConverter.GetBytes((ulong)s.data);
+					byte[] d = BitConverter.GetBytes(s.sd);
+					byte[] str = new byte[16];
+					Array.Copy(c, str, 8);
+					Array.Copy(d, 0, str, 8, 8);
+					return Encoding.UTF8.GetString(str);
+				}
+				return readUTF8str(s.data);
+			}
+            catch (Exception e){ Console.WriteLine(e.StackTrace); }
+			return null;
 		}
 	}
 	

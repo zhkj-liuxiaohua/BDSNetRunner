@@ -119,9 +119,9 @@ namespace CSR
 		private RUNCMDFUNC cruncmd, cremovePlayerBossBar, cremovePlayerSidebar;
 		private delegate void LOGOUTFUNC(string cmdout);
 		private LOGOUTFUNC clogout;
-		private delegate IntPtr GETONLINEPLAYERSFUNC();
+		private delegate Std_String GETONLINEPLAYERSFUNC();
 		private GETONLINEPLAYERSFUNC cgetOnLinePlayers;
-		private delegate IntPtr GETSTRUCTUREFUNC(int did, string jsonposa, string jsonposb, bool exent, bool exblk);
+		private delegate Std_String GETSTRUCTUREFUNC(int did, string jsonposa, string jsonposb, bool exent, bool exblk);
 		private GETSTRUCTUREFUNC cgetStructure;
 		private delegate bool SETSTRUCTUREFUNC(string jdata, int did, string jsonposa, char rot, bool exent, bool exblk);
 		private SETSTRUCTUREFUNC csetStructure;
@@ -129,7 +129,7 @@ namespace CSR
 		private RENAMEBYUUIDFUNC creNameByUuid, csetPlayerAbilities, csetPlayerTempAttributes,
 			csetPlayerMaxAttributes, csetPlayerItems, caddPlayerItemEx, csetPlayerEffects,
 			ctalkAs, cruncmdAs, csetPlayerPermissionAndGametype;
-		private delegate IntPtr GETPLAYERABILITIESFUNC(string uuid);
+		private delegate Std_String GETPLAYERABILITIESFUNC(string uuid);
 		private GETPLAYERABILITIESFUNC cgetPlayerAbilities, cgetPlayerAttributes, cgetPlayerMaxAttributes,
 			cgetPlayerItems, cgetPlayerSelectedItem, cgetPlayerEffects, cselectPlayer, cgetPlayerPermissionAndGametype;
 		private delegate bool ADDPLAYERITEMFUNC(string uuid, int id, short aux, char count);
@@ -341,7 +341,7 @@ namespace CSR
 		/// </summary>
 		/// <returns></returns>
 		public string getOnLinePlayers() {
-			return (cgetOnLinePlayers != null) ? StrTool.readUTF8str(cgetOnLinePlayers()) :
+			return (cgetOnLinePlayers != null) ? StrTool.c_str(cgetOnLinePlayers()) :
 				string.Empty;
 		}
 		
@@ -355,7 +355,7 @@ namespace CSR
 		/// <param name="exblk">是否导出方块</param>
 		/// <returns>结构json字符串</returns>
 		public string getStructure(int did, string jsonposa, string jsonposb, bool exent, bool exblk) {
-			return (cgetStructure != null) ? StrTool.readUTF8str(cgetStructure(did, jsonposa, jsonposb, exent, exblk)) :
+			return (cgetStructure != null) ? StrTool.c_str(cgetStructure(did, jsonposa, jsonposb, exent, exblk)) :
 				string.Empty;
 		}
 		/// <summary>
@@ -391,7 +391,7 @@ namespace CSR
 		/// <param name="uuid">在线玩家的uuid字符串</param>
 		/// <returns>能力json字符串</returns>
 		public string getPlayerAbilities(string uuid) {
-			return (cgetPlayerAbilities != null) ? StrTool.readUTF8str(cgetPlayerAbilities(uuid)) :
+			return (cgetPlayerAbilities != null) ? StrTool.c_str(cgetPlayerAbilities(uuid)) :
 				string.Empty;
 		}
 		/// <summary>
@@ -412,7 +412,7 @@ namespace CSR
 		/// <param name="uuid">在线玩家的uuid字符串</param>
 		/// <returns>属性json字符串</returns>
 		public string getPlayerAttributes(string uuid) {
-			return (cgetPlayerAttributes != null) ? StrTool.readUTF8str(cgetPlayerAttributes(uuid)) :
+			return (cgetPlayerAttributes != null) ? StrTool.c_str(cgetPlayerAttributes(uuid)) :
 				string.Empty;
 		}
 		/// <summary>
@@ -431,7 +431,7 @@ namespace CSR
 		/// <param name="uuid">在线玩家的uuid字符串</param>
 		/// <returns>属性上限值json字符串</returns>
 		public string getPlayerMaxAttributes(string uuid) {
-			return (cgetPlayerMaxAttributes != null) ? StrTool.readUTF8str(cgetPlayerMaxAttributes(uuid)) :
+			return (cgetPlayerMaxAttributes != null) ? StrTool.c_str(cgetPlayerMaxAttributes(uuid)) :
 				string.Empty;
 		}
 		/// <summary>
@@ -452,7 +452,7 @@ namespace CSR
 		/// <param name="uuid">在线玩家的uuid字符串</param>
 		/// <returns>物品列表json字符串</returns>
 		public string getPlayerItems(string uuid) {
-			return (cgetPlayerItems != null) ? StrTool.readUTF8str(cgetPlayerItems(uuid)) :
+			return (cgetPlayerItems != null) ? StrTool.c_str(cgetPlayerItems(uuid)) :
 				string.Empty;
 		}
 		/// <summary>
@@ -472,7 +472,7 @@ namespace CSR
 		/// <param name="uuid">在线玩家的uuid字符串</param>
 		/// <returns>当前选中项信息json字符串</returns>
 		public string getPlayerSelectedItem(string uuid) {
-			return (cgetPlayerSelectedItem != null) ? StrTool.readUTF8str(cgetPlayerSelectedItem(uuid)) :
+			return (cgetPlayerSelectedItem != null) ? StrTool.c_str(cgetPlayerSelectedItem(uuid)) :
 				string.Empty;
 		}
 		/// <summary>
@@ -503,7 +503,7 @@ namespace CSR
 		/// <param name="uuid">在线玩家的uuid字符串</param>
 		/// <returns>效果列表json字符串</returns>
 		public string getPlayerEffects(string uuid) {
-			return (cgetPlayerEffects != null) ? StrTool.readUTF8str(cgetPlayerEffects(uuid)) :
+			return (cgetPlayerEffects != null) ? StrTool.c_str(cgetPlayerEffects(uuid)) :
 				string.Empty;
 		}
 		/// <summary>
@@ -542,7 +542,7 @@ namespace CSR
 		/// <param name="uuid">在线玩家的uuid字符串</param>
 		/// <returns>玩家基本信息json字符串</returns>
 		public string selectPlayer(string uuid) {
-			return (cselectPlayer != null) ? StrTool.readUTF8str(cselectPlayer(uuid)) :
+			return (cselectPlayer != null) ? StrTool.c_str(cselectPlayer(uuid)) :
 				string.Empty;
 		}
 		
@@ -660,7 +660,7 @@ namespace CSR
 		/// <param name="uuid">在线玩家的uuid字符串</param>
 		/// <returns>权限与模式的json字符串</returns>
 		public string getPlayerPermissionAndGametype(string uuid) {
-			return (cgetPlayerPermissionAndGametype != null) ? StrTool.readUTF8str(cgetPlayerPermissionAndGametype(uuid)) :
+			return (cgetPlayerPermissionAndGametype != null) ? StrTool.c_str(cgetPlayerPermissionAndGametype(uuid)) :
 				string.Empty;
 		}
 		/// <summary>

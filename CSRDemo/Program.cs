@@ -30,6 +30,17 @@ namespace CSRDemo
 				}
 				return true;
 			});
+			// 表单选择监听
+			api.addAfterActListener(EventKey.onFormSelect, x => {
+				Console.WriteLine("[CS] type = {0}, mode = {1}, result= {2}", x.type, x.mode, x.result);
+				var fe = BaseEvent.getFrom(x) as FormSelectEvent;
+				if (fe.selected != "null") {
+					Console.WriteLine("玩家 {0} 选择了表单 id={1} ，selected={2}", fe.playername, fe.formid, fe.selected);
+				} else {
+					Console.WriteLine("玩家 {0} 取消了表单 id={1}", fe.playername, fe.formid);
+                }
+				return false;
+			});
 			// 使用物品监听
 			api.addAfterActListener(EventKey.onUseItem, x => {
 				Console.WriteLine("[CS] type = {0}, mode = {1}, result= {2}", x.type, x.mode, x.result);
@@ -225,25 +236,34 @@ namespace CSRDemo
 						ae.XYZ.y.ToString("F2") + "," + ae.XYZ.z.ToString("F2") + ") 处攻击了 " + ae.actortype + " 。";
 					Console.WriteLine(str);
 					//Console.WriteLine("list={0}", api.getOnLinePlayers());
-					JavaScriptSerializer ser = new JavaScriptSerializer();
-					ArrayList al = ser.Deserialize<ArrayList>(api.getOnLinePlayers());
-					object uuid = null;
-					foreach (Dictionary<string, object> p in al) {
-						object name;
-						if (p.TryGetValue("playername", out name)) {
-							if ((string)name == ae.playername) {
-								// 找到
-								p.TryGetValue("uuid", out uuid);
-								break;
+					string ols = api.getOnLinePlayers();
+					if (!string.IsNullOrEmpty(ols))
+                    {
+						JavaScriptSerializer ser = new JavaScriptSerializer();
+						ArrayList al = ser.Deserialize<ArrayList>(ols);
+						object uuid = null;
+						foreach (Dictionary<string, object> p in al)
+						{
+							object name;
+							if (p.TryGetValue("playername", out name))
+							{
+								if ((string)name == ae.playername)
+								{
+									// 找到
+									p.TryGetValue("uuid", out uuid);
+									break;
+								}
+							}
 						}
-					}
-					}
-					if (uuid != null) {
-						api.sendSimpleForm((string)uuid,
-						                   "致命选项",
-						                   "test choose:",
-						                   "[\"生存\",\"死亡\",\"求助\"]");
-						//api.transferserver((string)uuid, "www.xiafox.com", 19132);
+						if (uuid != null)
+						{
+							var id = api.sendSimpleForm((string)uuid,
+											   "致命选项",
+											   "test choose:",
+											   "[\"生存\",\"死亡\",\"求助\"]");
+							Console.WriteLine("创建需自行保管的表单，id={0}", id);
+							//api.transferserver((string)uuid, "www.xiafox.com", 19132);
+						}
 					}
 				} else {
 					Console.WriteLine("Event convent fail.");

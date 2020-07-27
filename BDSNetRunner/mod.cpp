@@ -309,7 +309,7 @@ static std::unordered_map<Player*, bool> playerSign;
 // 功能：获取在线玩家列表
 // 参数个数：0个
 // 返回值：玩家列表的Json字符串
-const char* getOnLinePlayers() {
+std::string getOnLinePlayers() {
 	Json::Value rt;
 	Json::Value jv;
 	mleftlock.lock();
@@ -323,11 +323,7 @@ const char* getOnLinePlayers() {
 		}
 	}
 	mleftlock.unlock();
-	const char* jstr = rt.toStyledString().c_str();
-	VA l = strlen(jstr);
-	std::unique_ptr<char[]> x = std::unique_ptr<char[]>(new char[l + 1]);
-	strcpy_s(*(char**)&x, l + 1, jstr);
-	return *(const char**)&x;
+	return rt.toStyledString();
 }
 
 #if (COMMERCIAL)
@@ -355,7 +351,7 @@ static void countPos2AOff(BPos3* a1, BPos3* a2) {
 // 参数类型：整型，字符串，字符串，布尔型，布尔型
 // 参数详解：dimensionid - 地图维度，posa - 坐标JSON字符串，posb - 坐标JSON字符串，exent - 是否导出实体，exblk - 是否导出方块
 // 返回值：结构json字符串
-static const char* getStructure(int did, const char* jsonposa, const char* jsonposb, bool exent, bool exblk) {
+static std::string getStructure(int did, const char* jsonposa, const char* jsonposb, bool exent, bool exblk) {
 	std::unique_ptr<char[]> x;
 	if (p_level && (did > -1 && did < 3)) {
 		Json::Value jposa = toJson(jsonposa);
@@ -374,14 +370,10 @@ static const char* getStructure(int did, const char* jsonposa, const char* jsonp
 			(*(Tag**)t)->clearAll();
 			*(VA*)t = 0;
 			delete (VA*)t;
-			const char* jstr = ret.c_str();
-			VA l = strlen(jstr);
-			x = std::unique_ptr<char[]>(new char[l + 1]);
-			strcpy_s(*(char**)&x, l + 1, jstr);
-			return *(const char**)&x;
+			return ret;
 		}
 	}
-	return NULL;
+	return "";
 }
 
 // 函数名：setStructure
@@ -428,20 +420,16 @@ static Json::Value getAbilities(Player* p) {
 // 参数类型：字符串
 // 参数详解：uuid - 在线玩家的uuid字符串
 // 返回值：能力json字符串
-static const char* getPlayerAbilities(const char* uuid) {
+static std::string getPlayerAbilities(const char* uuid) {
 	std::string ret = "";
 	Player* p = onlinePlayers[uuid];
 	if (playerSign[p]) {
 		mleftlock.lock();
 		auto jv = getAbilities(p);
 		mleftlock.unlock();
-		const char* ret = jv.toStyledString().c_str();
-		VA l = strlen(ret);
-		std::unique_ptr<char[]> x = std::unique_ptr<char[]>(new char[l + 1]);
-		strcpy_s(*(char**)&x, l + 1, ret);
-		return *(const char**)&x;
+		return jv.toStyledString();
 	}
-	return NULL;
+	return "";
 }
 
 // 函数名：setPlayerAbilities
@@ -481,7 +469,7 @@ static bool setPlayerAbilities(const char* uuid, const char* abdata) {
 // 参数类型：字符串
 // 参数详解：uuid - 在线玩家的uuid字符串
 // 返回值：属性json字符串
-static const char* getPlayerAttributes(const char* uuid) {
+static std::string getPlayerAttributes(const char* uuid) {
 	Player* p = onlinePlayers[uuid];
 	if (playerSign[p]) {
 		mleftlock.lock();
@@ -491,13 +479,9 @@ static const char* getPlayerAttributes(const char* uuid) {
 			jv[k.first] = p->getAttr(k.first.c_str());
 		}
 		mleftlock.unlock();
-		const char* ret = jv.toStyledString().c_str();
-		VA l = strlen(ret);
-		std::unique_ptr<char[]> x = std::unique_ptr<char[]>(new char[l + 1]);
-		strcpy_s(*(char**)&x, l + 1, ret);
-		return *(const char**)&x;
+		return jv.toStyledString();
 	}
-	return NULL;
+	return "";
 }
 
 // 函数名：setPlayerTempAttributes
@@ -537,7 +521,7 @@ static bool setPlayerTempAttributes(const char* uuid, const char* jstr) {
 // 参数类型：字符串
 // 参数详解：uuid - 在线玩家的uuid字符串
 // 返回值：属性上限值json字符串
-static const char* getPlayerMaxAttributes(const char* uuid) {
+static std::string getPlayerMaxAttributes(const char* uuid) {
 	Player* p = onlinePlayers[uuid];
 	if (playerSign[p]) {
 		mleftlock.lock();
@@ -547,13 +531,9 @@ static const char* getPlayerMaxAttributes(const char* uuid) {
 			jv[k.first] = p->getMaxAttr(k.first.c_str());
 		}
 		mleftlock.unlock();
-		const char* ret = jv.toStyledString().c_str();
-		VA l = strlen(ret);
-		std::unique_ptr<char[]> x = std::unique_ptr<char[]>(new char[l + 1]);
-		strcpy_s(*(char**)&x, l + 1, ret);
-		return *(const char**)&x;
+		return jv.toStyledString();
 	}
-	return NULL;
+	return "";
 }
 
 // 函数名：setPlayerMaxAttributes
@@ -593,19 +573,15 @@ static bool setPlayerMaxAttributes(const char* uuid, const char* jstr) {
 // 参数类型：字符串
 // 参数详解：uuid - 在线玩家的uuid字符串
 // 返回值：物品列表json字符串
-static const char* getPlayerItems(const char* uuid) {
+static std::string getPlayerItems(const char* uuid) {
 	Player* p = onlinePlayers[uuid];
 	if (playerSign[p]) {
 		mleftlock.lock();
 		Json::Value jv = p->getAllItemsList();
 		mleftlock.unlock();
-		const char* ret = jv.toStyledString().c_str();
-		VA l = strlen(ret);
-		std::unique_ptr<char[]> x = std::unique_ptr<char[]>(new char[l + 1]);
-		strcpy_s(*(char**)&x, l + 1, ret);
-		return *(const char**)&x;
+		return jv.toStyledString();
 	}
-	return NULL;
+	return "";
 }
 
 // 函数名：setPlayerItems
@@ -643,7 +619,7 @@ static bool setPlayerItems(const char* uuid, const char* jstr) {
 // 参数类型：字符串
 // 参数详解：uuid - 在线玩家的uuid字符串
 // 返回值：当前选中项信息json字符串
-static const char* getPlayerSelectedItem(const char* uuid) {
+static std::string getPlayerSelectedItem(const char* uuid) {
 	Player* p = onlinePlayers[uuid];
 	if (playerSign[p]) {
 		mleftlock.lock();
@@ -654,13 +630,9 @@ static const char* getPlayerSelectedItem(const char* uuid) {
 			jv["selecteditem"] = its->toJson();
 		}
 		mleftlock.unlock();
-		const char* ret = jv.toStyledString().c_str();
-		VA l = strlen(ret);
-		std::unique_ptr<char[]> x = std::unique_ptr<char[]>(new char[l + 1]);
-		strcpy_s(*(char**)&x, l + 1, ret);
-		return *(const char**)&x;
+		return jv.toStyledString();
 	}
-	return NULL;
+	return "";
 }
 
 // 函数名：addPlayerItemEx
@@ -700,19 +672,15 @@ static bool addPlayerItemEx(const char* uuid, const char* item) {
 // 参数类型：字符串
 // 参数详解：uuid - 在线玩家的uuid字符串
 // 返回值：效果列表json字符串
-static const char* getPlayerEffects(const char* uuid) {
+static std::string getPlayerEffects(const char* uuid) {
 	Player* p = onlinePlayers[uuid];
 	if (playerSign[p]) {
 		Json::Value jv = p->getAllEffects();
 		if (!jv.isNull()) {
-			const char* ret = jv.toStyledString().c_str();
-			VA l = strlen(ret);
-			std::unique_ptr<char[]> x = std::unique_ptr<char[]>(new char[l + 1]);
-			strcpy_s(*(char**)&x, l + 1, ret);
-			return *(const char**)&x;
+			return jv.toStyledString();
 		}
 	}
-	return NULL;
+	return "";
 }
 
 // 函数名：setPlayerEffects
@@ -1039,7 +1007,7 @@ static void addPlayerJsonInfo(Json::Value& jv, Player* p) {
 // 参数类型：字符串
 // 参数详解：uuid - 在线玩家的uuid字符串
 // 返回值：玩家基本信息json字符串
-const char* selectPlayer(const char* uuid) {
+std::string selectPlayer(const char* uuid) {
 	Player* p = onlinePlayers[uuid];
 	if (playerSign[p]) {
 		mleftlock.lock();
@@ -1051,13 +1019,9 @@ const char* selectPlayer(const char* uuid) {
 		jv["health"] = p->getAttr("health");
 #endif
 		mleftlock.unlock();
-		const char* ret = jv.toStyledString().c_str();
-		VA l = strlen(ret);
-		std::unique_ptr<char[]> x = std::unique_ptr<char[]>(new char[l + 1]);
-		strcpy_s(*(char**)&x, l + 1, ret);
-		return *(const char**)&x;
+		return std::string(jv.toStyledString());
 	}
-	return NULL;
+	return "";
 }
 
 // 函数名：talkAs

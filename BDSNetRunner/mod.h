@@ -37,11 +37,11 @@ MCCSAPI bool runcmd(const char*);
 // 发送一个命令输出消息（末尾接换行符）
 MCCSAPI void logout(const char*);
 // 获取在线玩家列表
-MCCSAPI const char* getOnLinePlayers();
+MCCSAPI std::string getOnLinePlayers();
 // 重设新名字
 MCCSAPI bool reNameByUuid(const char*, const char*);
 // 获取一个在线玩家信息
-MCCSAPI const char* selectPlayer(const char*);
+MCCSAPI std::string selectPlayer(const char*);
 // 模拟喊话
 MCCSAPI bool talkAs(const char*, const char*);
 // 模拟指令
@@ -72,31 +72,31 @@ MCCSAPI int getscoreboardValue(const char*, const char*);
 
 #if (COMMERCIAL)
 // 调用原型：获取一个结构
-typedef const char* (**getStructureFunc)(int, const char*, const char*, bool, bool);
+typedef std::string (**getStructureFunc)(int, const char*, const char*, bool, bool);
 // 调用原型：设置一个结构到指定位置
 typedef bool (**setStructureFunc)(const char*, int, const char*, char, bool, bool);
 // 调用原型：获取玩家能力表
-typedef const char* (**getPlayerAbilitiesFunc)(const char*);
+typedef std::string (**getPlayerAbilitiesFunc)(const char*);
 // 调用原型：设置玩家能力表
 typedef bool (**setPlayerAbilitiesFunc)(const char*, const char*);
 // 调用原型：获取玩家属性表
-typedef const char* (**getPlayerAttributesFunc)(const char*);
+typedef std::string (**getPlayerAttributesFunc)(const char*);
 // 调用原型：设置玩家属性临时值表
 typedef bool (**setPlayerTempAttributesFunc)(const char*, const char*);
 // 调用原型：获取玩家属性上限值表
-typedef const char* (**getPlayerMaxAttributesFunc)(const char*);
+typedef std::string (**getPlayerMaxAttributesFunc)(const char*);
 // 调用原型：设置玩家属性上限值表
 typedef bool (**setPlayerMaxAttributesFunc)(const char*, const char*);
 // 调用原型：获取玩家所有物品列表
-typedef const char* (**getPlayerItemsFunc)(const char*);
+typedef std::string (**getPlayerItemsFunc)(const char*);
 // 调用原型：设置玩家所有物品列表
 typedef bool (**setPlayerItemsFunc)(const char*, const char*);
 // 调用原型：获取玩家当前选中项信息
-typedef const char* (**getPlayerSelectedItemFunc)(const char*);
+typedef std::string (**getPlayerSelectedItemFunc)(const char*);
 // 调用原型：增加玩家一个物品
 typedef bool (**addPlayerItemExFunc)(const char*, const char*);
 // 调用原型：获取玩家所有效果列表
-typedef const char* (**getPlayerEffectsFunc)(const char*);
+typedef std::string (**getPlayerEffectsFunc)(const char*);
 // 调用原型：设置玩家所有效果列表
 typedef bool (**setPlayerEffectsFunc)(const char*, const char*);
 // 调用原型：设置玩家自定义血条
@@ -112,7 +112,7 @@ typedef bool (**setPlayerSidebarFunc)(const char*, const char*, const char*);
 // 调用原型：清除玩家自定义侧边栏
 typedef bool (**removePlayerSidebarFunc)(const char*);
 // 调用原型：获取玩家权限与游戏模式
-typedef const char* (**getPlayerPermissionAndGametypeFunc)(const char*);
+typedef std::string (**getPlayerPermissionAndGametypeFunc)(const char*);
 // 调用原型：设置玩家权限与游戏模式
 typedef bool (**setPlayerPermissionAndGametypeFunc)(const char*, const char*);
 #endif
