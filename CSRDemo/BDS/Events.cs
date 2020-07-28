@@ -928,15 +928,15 @@ namespace CSR
 			return le;
 		}
 	}
-	
+
 	/// <summary>
-	/// 玩家输入文本监听<br/>
+	/// 玩家输入指令监听<br/>
 	/// 拦截可否：是
 	/// </summary>
 	public class InputCommandEvent : PlayerEvent {
 		protected string mcmd;
 		/// <summary>
-		/// 输入的文本
+		/// 玩家输入的指令
 		/// </summary>
 		public string cmd {get{return mcmd;}}
 		public static new InputCommandEvent getFrom(Events e)
