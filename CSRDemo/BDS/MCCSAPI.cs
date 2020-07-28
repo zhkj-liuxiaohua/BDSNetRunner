@@ -132,7 +132,7 @@ namespace CSR
 		private delegate Std_String GETPLAYERABILITIESFUNC(string uuid);
 		private GETPLAYERABILITIESFUNC cgetPlayerAbilities, cgetPlayerAttributes, cgetPlayerMaxAttributes,
 			cgetPlayerItems, cgetPlayerSelectedItem, cgetPlayerEffects, cselectPlayer, cgetPlayerPermissionAndGametype;
-		private delegate bool ADDPLAYERITEMFUNC(string uuid, int id, short aux, char count);
+		private delegate bool ADDPLAYERITEMFUNC(string uuid, int id, short aux, byte count);
 		private ADDPLAYERITEMFUNC caddPlayerItem;
 		private delegate bool SETPLAYERBOSSBARFUNC(string uuid, string title, float percent);
 		private SETPLAYERBOSSBARFUNC csetPlayerBossBar;
@@ -494,7 +494,7 @@ namespace CSR
 		/// <param name="aux">物品特殊值</param>
 		/// <param name="count">数量</param>
 		/// <returns>是否增加成功</returns>
-		public bool addPlayerItem(string uuid, int id, short aux, char count) {
+		public bool addPlayerItem(string uuid, int id, short aux, byte count) {
 			return (caddPlayerItem != null) && caddPlayerItem(uuid, id, aux, count);
 		}
 		/// <summary>

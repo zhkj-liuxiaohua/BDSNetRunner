@@ -259,6 +259,10 @@ void setCommandDescribeEx(const char* cmd, const char* description, char level, 
 	auto strcmd = GBKToUTF8(cmd);
 	if (strcmd.length()) {
 		auto flgs = std::make_unique<CmdDescriptionFlags>();
+		flgs->description = GBKToUTF8(description);
+		flgs->level = level;
+		flgs->flag1 = flag1;
+		flgs->flag2 = flag2;
 		cmddescripts[strcmd] = std::move(flgs);
 		if (regHandle) {
 			std::string c = strcmd;
@@ -876,7 +880,7 @@ static bool removePlayerSidebar(const char* uuid) {
 // 参数类型：字符串
 // 参数详解：uuid - 在线玩家的uuid字符串
 // 返回值：权限与模式的json字符串
-static const char* getPlayerPermissionAndGametype(const char* uuid) {
+static std::string getPlayerPermissionAndGametype(const char* uuid) {
 	Player* p = onlinePlayers[uuid];
 	if (playerSign[p]) {
 		mleftlock.lock();
@@ -885,13 +889,9 @@ static const char* getPlayerPermissionAndGametype(const char* uuid) {
 		jv["permission"] = (int)p->getPermissionLevel();
 		jv["gametype"] = p->getGameType();
 		mleftlock.unlock();
-		const char* ret = jv.toStyledString().c_str();
-		VA l = strlen(ret);
-		std::unique_ptr<char[]> x = std::unique_ptr<char[]>(new char[l + 1]);
-		strcpy_s(*(char**)&x, l + 1, ret);
-		return *(const char**)&x;
+		return jv.toStyledString();
 	}
-	return NULL;
+	return "";
 }
 
 // 函数名：setPlayerPermissionAndGametype
