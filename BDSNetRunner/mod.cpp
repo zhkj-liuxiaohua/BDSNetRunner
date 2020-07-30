@@ -327,7 +327,7 @@ std::string getOnLinePlayers() {
 		}
 	}
 	mleftlock.unlock();
-	return rt.toStyledString();
+	return rt.isNull() ? "" : rt.toStyledString();
 }
 
 #if (COMMERCIAL)
