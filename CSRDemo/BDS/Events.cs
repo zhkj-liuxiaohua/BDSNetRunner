@@ -229,7 +229,7 @@ namespace CSR
 					byte[] str = new byte[16];
 					Array.Copy(c, str, 8);
 					Array.Copy(d, 0, str, 8, 8);
-					return Encoding.UTF8.GetString(str);
+					return Encoding.UTF8.GetString(str, 0, (int)s.len);
 				}
 				return readUTF8str(s.data);
 			}
