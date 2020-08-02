@@ -123,7 +123,7 @@ namespace CSR
 		private GETONLINEPLAYERSFUNC cgetOnLinePlayers;
 		private delegate Std_String GETSTRUCTUREFUNC(int did, string jsonposa, string jsonposb, bool exent, bool exblk);
 		private GETSTRUCTUREFUNC cgetStructure;
-		private delegate bool SETSTRUCTUREFUNC(string jdata, int did, string jsonposa, char rot, bool exent, bool exblk);
+		private delegate bool SETSTRUCTUREFUNC(string jdata, int did, string jsonposa, byte rot, bool exent, bool exblk);
 		private SETSTRUCTUREFUNC csetStructure;
 		private delegate bool RENAMEBYUUIDFUNC(string uuid, string newName);
 		private RENAMEBYUUIDFUNC creNameByUuid, csetPlayerAbilities, csetPlayerTempAttributes,
@@ -369,7 +369,7 @@ namespace CSR
 		/// <param name="exent">是否导入实体</param>
 		/// <param name="exblk">是否导入方块</param>
 		/// <returns>是否设置成功</returns>
-		public bool setStructure(string jdata, int did, string jsonposa, char rot, bool exent, bool exblk) {
+		public bool setStructure(string jdata, int did, string jsonposa, byte rot, bool exent, bool exblk) {
 			return (csetStructure != null) && csetStructure(jdata, did, jsonposa, rot, exent, exblk);
 		}
 		

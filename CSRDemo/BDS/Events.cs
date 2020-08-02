@@ -575,7 +575,7 @@ namespace CSR
 	
 	/// <summary>
 	/// 开桶监听<br/>
-	/// 拦截可否：是
+	/// 拦截可否：否
 	/// </summary>
 	public class StartOpenBarrelEvent : BlockEvent {
 		public static new StartOpenBarrelEvent getFrom(Events e)
