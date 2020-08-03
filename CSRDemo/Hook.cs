@@ -21,7 +21,7 @@ namespace CSRDemo
 		
 		private static MCCSAPI mcapi = null;
 
-		delegate ulong CMD_REG_Func(ulong a1, ulong a2, ulong a3, int level, byte f1, byte f2);
+		delegate ulong CMD_REG_Func(ulong a1, ulong a2, ulong a3, byte level, byte f1, byte f2);
 		private static IntPtr _CS_REGISTERCOMMAND_org = IntPtr.Zero;
 		/// <summary>
 		/// 新方法，修改注册的命令标识，所有指令全部增加一个无需作弊可用的flag
@@ -33,13 +33,12 @@ namespace CSRDemo
 		/// <param name="f1">指令属性flag1</param>
 		/// <param name="f2">指令属性flag2</param>
 		/// <returns></returns>
-		private static ulong _cshook_registerCommand(ulong a1, ulong a2, ulong a3, int level, byte f1, byte f2) {
-			f1 |= (byte)MCCSAPI.CommandCheatFlag.NotCheat;
+		private static readonly CMD_REG_Func cs_reghookptr = (ulong a1, ulong a2, ulong a3, byte level, byte f1, byte f2) =>{
+			f1 |= (byte) MCCSAPI.CommandCheatFlag.NotCheat;
 			var org = Marshal.GetDelegateForFunctionPointer(_CS_REGISTERCOMMAND_org, typeof(CMD_REG_Func)) as CMD_REG_Func;
 			return org(a1, a2, a3, level, f1, f2);
-		}
-		private static readonly CMD_REG_Func cs_reghookptr = _cshook_registerCommand;
-		
+		};
+
 		delegate ulong ONCREATEPLAYER_Func(ulong a1, IntPtr a2);
 		private static IntPtr _CS_ONCREATEPLAYER_org = IntPtr.Zero;
 		/// <summary>
@@ -48,25 +47,23 @@ namespace CSRDemo
 		/// <param name="a1">ServerScoreboard句柄</param>
 		/// <param name="player">player指针</param>
 		/// <returns></returns>
-		private static ulong _CS_ONCREATEPLAYER(ulong a1, IntPtr player) {
+		private static readonly ONCREATEPLAYER_Func cs_crthookptr = (ulong a1, IntPtr player) =>{
 			Console.WriteLine("[c# hook] A player is join.");
 			Symcall.setPermission(mcapi, player, 3);	// 若参数为3，则op模式可使用kick
-			Thread t = new Thread(releasehook);			// 延时卸载钩子，也可于当前线程末尾时机进行卸载，也可不卸载
+			Thread t = new Thread(releasehook);         // 延时卸载钩子，也可于当前线程末尾时机进行卸载，也可不卸载
 			t.Start();
 			ONCREATEPLAYER_Func org = Marshal.GetDelegateForFunctionPointer(_CS_ONCREATEPLAYER_org, typeof(ONCREATEPLAYER_Func)) as ONCREATEPLAYER_Func;
 			return org(a1, player);
-		}
-		private static readonly ONCREATEPLAYER_Func cs_crthookptr = _CS_ONCREATEPLAYER;
+		};
 
 		// 初始化hook
 		public static void init(MCCSAPI api) {
 			mcapi = api;
 			// 初始化RVA，或可远程获取
-			ArrayList al = new ArrayList();
-			al.Add(0x00B9D4C0);
-			al.Add(0x00429850);
-			al.Add(0x004ECFD0);
+			ArrayList al = new ArrayList(new int[]{0x00B9D4C0, 0x00429850, 0x004ECFD0});
 			RVAs["1.16.1.2"] = al;
+			ArrayList a2 = new ArrayList(new int[] {0x00B9D100, 0x00429820, 0x004ECFA0});
+			RVAs["1.16.10.2"] = a2;
 			try {
 				ArrayList rval = null;
 				if (RVAs.TryGetValue(api.VERSION, out rval)) {

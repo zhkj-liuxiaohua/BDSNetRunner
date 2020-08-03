@@ -16,7 +16,7 @@
 #pragma comment(lib, "mscoree.lib")
 
 // 当前插件平台版本号
-static const wchar_t* VERSION = L"1.16.1.2";
+static const wchar_t* VERSION = L"1.16.10.2";
 static const wchar_t* ISFORCOMMERCIAL = L"1";
 
 static bool netregok = false;
@@ -1967,7 +1967,7 @@ THook2(_CS_SETRESPWNEXPLOREDE, bool,
 	Player* pPlayer, BlockPos* a2, BlockSource* a3, Level* a4) {
 	auto v8 = a3->getBlock(a2);
 	auto v9 = (VA*)*((VA*)v8 + 2);
-	VA qwt = SYM_OBJECT(VA, 0x191E308);
+	VA qwt = SYM_OBJECT(VA, (MSSYM_B1QE19RespawnAnchorChargeB1AE13VanillaStatesB2AAA23VB2QDE16ItemStateVariantB1AA1HB2AAA1B + 8));
 	if (!*(char*)(*v9 + 32 * qwt + 460)
 		|| !(((unsigned int)*((unsigned __int16*)v8 + 4) >> (*(char*)(*v9 + 32 * qwt + 444)
 			- *(char*)(*v9 + 32 * qwt + 448)

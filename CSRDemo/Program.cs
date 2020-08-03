@@ -352,6 +352,7 @@ namespace CSR
 		public static void onStart(MCCSAPI api) {
 			// TODO 此接口为必要实现
 			CSRDemo.Program.init(api);
+			Console.WriteLine("[Demo] CSR测试插件已装载。");
 		}
 	}
 }
