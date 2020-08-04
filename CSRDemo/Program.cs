@@ -34,6 +34,7 @@ namespace CSRDemo
 			api.addAfterActListener(EventKey.onFormSelect, x => {
 				Console.WriteLine("[CS] type = {0}, mode = {1}, result= {2}", x.type, x.mode, x.result);
 				var fe = BaseEvent.getFrom(x) as FormSelectEvent;
+				if (fe == null) return true;
 				if (fe.selected != "null") {
 					Console.WriteLine("玩家 {0} 选择了表单 id={1} ，selected={2}", fe.playername, fe.formid, fe.selected);
 				} else {

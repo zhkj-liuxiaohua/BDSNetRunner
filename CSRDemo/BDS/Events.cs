@@ -266,63 +266,67 @@ namespace CSR
 				Console.WriteLine("Empty struct data.");
 				return null;
 			}
-			switch ((EventType)e.type) {
-				case EventType.onServerCmd:
-					return ServerCmdEvent.getFrom(e);
-				case EventType.onServerCmdOutput:
-					return ServerCmdOutputEvent.getFrom(e);
-				case EventType.onFormSelect:
-					return FormSelectEvent.getFrom(e);
-				case EventType.onUseItem:
-					return UseItemEvent.getFrom(e);
-				case EventType.onPlacedBlock:
-					return PlacedBlockEvent.getFrom(e);
-				case EventType.onDestroyBlock:
-					return DestroyBlockEvent.getFrom(e);
-				case EventType.onStartOpenChest:
-					return StartOpenChestEvent.getFrom(e);
-				case EventType.onStartOpenBarrel:
-					return StartOpenBarrelEvent.getFrom(e);
-				case EventType.onStopOpenChest:
-					return StopOpenChestEvent.getFrom(e);
-				case EventType.onStopOpenBarrel:
-					return StopOpenBarrelEvent.getFrom(e);
-				case EventType.onSetSlot:
-					return SetSlotEvent.getFrom(e);
-				case EventType.onChangeDimension:
-					return ChangeDimensionEvent.getFrom(e);
-				case EventType.onMobDie:
-					return MobDieEvent.getFrom(e);
-				case EventType.onMobHurt:
-					return MobHurtEvent.getFrom(e);
-				case EventType.onRespawn:
-					return RespawnEvent.getFrom(e);
-				case EventType.onChat:
-					return ChatEvent.getFrom(e);
-				case EventType.onInputText:
-					return InputTextEvent.getFrom(e);
-				case EventType.onCommandBlockUpdate:
-					return CommandBlockUpdateEvent.getFrom(e);
-				case EventType.onInputCommand:
-					return InputCommandEvent.getFrom(e);
-				case EventType.onBlockCmd:
-					return BlockCmdEvent.getFrom(e);
-				case EventType.onNpcCmd:
-					return NpcCmdEvent.getFrom(e);
-				case EventType.onLoadName:
-					return LoadNameEvent.getFrom(e);
-				case EventType.onPlayerLeft:
-					return PlayerLeftEvent.getFrom(e);
-				case EventType.onMove:
-					return MoveEvent.getFrom(e);
-				case EventType.onAttack:
-					return AttackEvent.getFrom(e);
-				case EventType.onLevelExplode:
-					return LevelExplodeEvent.getFrom(e);
-				default:
-					// do nothing
-					break;
-			}
+			try
+			{
+				switch ((EventType)e.type)
+				{
+					case EventType.onServerCmd:
+						return ServerCmdEvent.getFrom(e);
+					case EventType.onServerCmdOutput:
+						return ServerCmdOutputEvent.getFrom(e);
+					case EventType.onFormSelect:
+						return FormSelectEvent.getFrom(e);
+					case EventType.onUseItem:
+						return UseItemEvent.getFrom(e);
+					case EventType.onPlacedBlock:
+						return PlacedBlockEvent.getFrom(e);
+					case EventType.onDestroyBlock:
+						return DestroyBlockEvent.getFrom(e);
+					case EventType.onStartOpenChest:
+						return StartOpenChestEvent.getFrom(e);
+					case EventType.onStartOpenBarrel:
+						return StartOpenBarrelEvent.getFrom(e);
+					case EventType.onStopOpenChest:
+						return StopOpenChestEvent.getFrom(e);
+					case EventType.onStopOpenBarrel:
+						return StopOpenBarrelEvent.getFrom(e);
+					case EventType.onSetSlot:
+						return SetSlotEvent.getFrom(e);
+					case EventType.onChangeDimension:
+						return ChangeDimensionEvent.getFrom(e);
+					case EventType.onMobDie:
+						return MobDieEvent.getFrom(e);
+					case EventType.onMobHurt:
+						return MobHurtEvent.getFrom(e);
+					case EventType.onRespawn:
+						return RespawnEvent.getFrom(e);
+					case EventType.onChat:
+						return ChatEvent.getFrom(e);
+					case EventType.onInputText:
+						return InputTextEvent.getFrom(e);
+					case EventType.onCommandBlockUpdate:
+						return CommandBlockUpdateEvent.getFrom(e);
+					case EventType.onInputCommand:
+						return InputCommandEvent.getFrom(e);
+					case EventType.onBlockCmd:
+						return BlockCmdEvent.getFrom(e);
+					case EventType.onNpcCmd:
+						return NpcCmdEvent.getFrom(e);
+					case EventType.onLoadName:
+						return LoadNameEvent.getFrom(e);
+					case EventType.onPlayerLeft:
+						return PlayerLeftEvent.getFrom(e);
+					case EventType.onMove:
+						return MoveEvent.getFrom(e);
+					case EventType.onAttack:
+						return AttackEvent.getFrom(e);
+					case EventType.onLevelExplode:
+						return LevelExplodeEvent.getFrom(e);
+					default:
+						// do nothing
+						break;
+				}
+			} catch (Exception ex) { Console.WriteLine(ex.StackTrace); }
 			return null;
 		}
 		
