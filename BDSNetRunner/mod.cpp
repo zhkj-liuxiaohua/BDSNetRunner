@@ -327,7 +327,7 @@ std::string getOnLinePlayers() {
 		}
 	}
 	mleftlock.unlock();
-	return rt.isNull() ? "" : rt.toStyledString();
+	return rt.isNull() ? "" : std::string(rt.toStyledString().c_str());
 }
 
 #if (COMMERCIAL)
@@ -370,7 +370,7 @@ static std::string getStructure(int did, const char* jsonposa, const char* jsonp
 			b.z = jposb["z"].asInt();
 			countPos2AOff(&a, &b);
 			VA t = StructureTemplate::getStructure(p_level, did, a, b, exent, exblk);
-			std::string ret = (*(Tag**)t)->toJson().toStyledString();
+			std::string ret = std::string((*(Tag**)t)->toJson().toStyledString().c_str());
 			(*(Tag**)t)->clearAll();
 			*(VA*)t = 0;
 			delete (VA*)t;
@@ -431,7 +431,7 @@ static std::string getPlayerAbilities(const char* uuid) {
 		mleftlock.lock();
 		auto jv = getAbilities(p);
 		mleftlock.unlock();
-		return jv.toStyledString();
+		return std::string(jv.toStyledString().c_str());
 	}
 	return "";
 }
@@ -483,7 +483,7 @@ static std::string getPlayerAttributes(const char* uuid) {
 			jv[k.first] = p->getAttr(k.first.c_str());
 		}
 		mleftlock.unlock();
-		return jv.toStyledString();
+		return std::string(jv.toStyledString().c_str());
 	}
 	return "";
 }
@@ -535,7 +535,7 @@ static std::string getPlayerMaxAttributes(const char* uuid) {
 			jv[k.first] = p->getMaxAttr(k.first.c_str());
 		}
 		mleftlock.unlock();
-		return jv.toStyledString();
+		return std::string(jv.toStyledString().c_str());
 	}
 	return "";
 }
@@ -583,7 +583,7 @@ static std::string getPlayerItems(const char* uuid) {
 		mleftlock.lock();
 		Json::Value jv = p->getAllItemsList();
 		mleftlock.unlock();
-		return jv.toStyledString();
+		return std::string(jv.toStyledString().c_str());
 	}
 	return "";
 }
@@ -634,7 +634,7 @@ static std::string getPlayerSelectedItem(const char* uuid) {
 			jv["selecteditem"] = its->toJson();
 		}
 		mleftlock.unlock();
-		return jv.toStyledString();
+		return std::string(jv.toStyledString().c_str());
 	}
 	return "";
 }
@@ -681,7 +681,7 @@ static std::string getPlayerEffects(const char* uuid) {
 	if (playerSign[p]) {
 		Json::Value jv = p->getAllEffects();
 		if (!jv.isNull()) {
-			return jv.toStyledString();
+			return std::string(jv.toStyledString().c_str());
 		}
 	}
 	return "";
@@ -889,7 +889,7 @@ static std::string getPlayerPermissionAndGametype(const char* uuid) {
 		jv["permission"] = (int)p->getPermissionLevel();
 		jv["gametype"] = p->getGameType();
 		mleftlock.unlock();
-		return jv.toStyledString();
+		return std::string(jv.toStyledString().c_str());
 	}
 	return "";
 }
@@ -1019,7 +1019,7 @@ std::string selectPlayer(const char* uuid) {
 		jv["health"] = p->getAttr("health");
 #endif
 		mleftlock.unlock();
-		return std::string(jv.toStyledString());
+		return std::string(jv.toStyledString().c_str());
 	}
 	return "";
 }

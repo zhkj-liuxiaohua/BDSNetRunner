@@ -184,8 +184,9 @@ namespace CSR
 	public struct Vec3 {
 		public float x, y, z;
 	}
-	
-    public struct Std_String {
+
+	[StructLayoutAttribute(LayoutKind.Sequential)]
+	public struct Std_String {
 		public IntPtr data;
 		public ulong sd;
 		public ulong len;
