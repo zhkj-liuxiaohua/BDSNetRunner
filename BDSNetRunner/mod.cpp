@@ -16,7 +16,7 @@
 #pragma comment(lib, "mscoree.lib")
 
 // 当前插件平台版本号
-static const wchar_t* VERSION = L"1.16.10.2";
+static const wchar_t* VERSION = L"1.16.20.3";
 static const wchar_t* ISFORCOMMERCIAL = L"1";
 
 static bool netregok = false;
@@ -1283,8 +1283,8 @@ static void getDamageInfo(void* p, void* dsrc, MobDieEvent* ue) {			// IDA Mob::
 
 bool hooked = false;
 
-// 此处开始接收异步数据
-THook2(_CS_MAIN, VA, 0x000B8960,
+// 此处开始接收异步数据			// IDA main
+THook2(_CS_MAIN, VA, MSSYM_A4main,
 	VA a1, VA a2, VA a3) {
 	initMods();
 	return original(a1, a2, a3);
@@ -1425,6 +1425,10 @@ THook2(_CS_ONUSEITEM, bool,
 	autoByteCpy(&ue.itemname, item->getName().c_str());
 	ue.itemid = item->getId();
 	ue.itemaux = item->getAuxValue();
+	if (pBlk) {
+		autoByteCpy(&ue.blockname, pBlk->getLegacyBlock()->getFullName().c_str());
+		ue.blockid = pBlk->getLegacyBlock()->getBlockItemID();
+	}
 	e.data = &ue;
 	bool ret = runCscode(ActEvent.ONUSEITEM, ActMode::BEFORE, e);
 	if (ret) {

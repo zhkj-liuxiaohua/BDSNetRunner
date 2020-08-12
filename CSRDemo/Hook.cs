@@ -64,6 +64,8 @@ namespace CSRDemo
 			RVAs["1.16.1.2"] = al;
 			ArrayList a2 = new ArrayList(new int[] {0x00B9D100, 0x00429820, 0x004ECFA0});
 			RVAs["1.16.10.2"] = a2;
+			ArrayList a3 = new ArrayList(new int[] { 0x00BA3560, 0x0042D250, 0x004F0920 });
+			RVAs["1.16.20.3"] = a3;
 			try {
 				ArrayList rval = null;
 				if (RVAs.TryGetValue(api.VERSION, out rval)) {

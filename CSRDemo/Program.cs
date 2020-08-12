@@ -47,8 +47,8 @@ namespace CSRDemo
 				Console.WriteLine("[CS] type = {0}, mode = {1}, result= {2}", x.type, x.mode, x.result);
 				var ue = BaseEvent.getFrom(x) as UseItemEvent;
 				if (ue != null && ue.RESULT) {
-					Console.WriteLine("玩家 {0} 在 {1} 的 ({2}, {3}, {4})" +
-						" 处使用了 {5} 物品。", ue.playername, ue.dimension, ue.position.x, ue.position.y, ue.position.z, ue.itemname);
+					Console.WriteLine("玩家 {0} 对 {1} 的 ({2}, {3}, {4}) 处的 {5} 方块" +
+						"操作了 {6} 物品。", ue.playername, ue.dimension, ue.position.x, ue.position.y, ue.position.z, ue.blockname, ue.itemname);
 				}
 				return true;
 			});

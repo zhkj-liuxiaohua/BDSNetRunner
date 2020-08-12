@@ -476,6 +476,8 @@ namespace CSR
 		protected BPos3 mposition;
 		protected short mitemid;
 		protected short mitemaux;
+		protected string mblockname;
+		protected short mblockid;
 		/// <summary>
 		/// 物品名称
 		/// </summary>
@@ -492,6 +494,14 @@ namespace CSR
 		/// 物品特殊值
 		/// </summary>
 		public short itemaux {get{return mitemaux;}}
+		/// <summary>
+		/// 操作方块名称
+		/// </summary>
+		public string blockname { get { return mblockname; } }
+		/// <summary>
+		/// 操作方块id
+		/// </summary>
+		public short blockid { get { return mblockid; } }
 		public static new UseItemEvent getFrom(Events e)
 		{
 			var ue = createHead(e, EventType.onUseItem, typeof(UseItemEvent)) as UseItemEvent;
@@ -503,6 +513,8 @@ namespace CSR
 			ue.mposition = (BPos3)Marshal.PtrToStructure(s + 48, typeof(BPos3));
 			ue.mitemid = Marshal.ReadInt16(s, 60);
 			ue.mitemaux = Marshal.ReadInt16(s, 62);
+			ue.mblockname = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 64));
+			ue.mblockid = Marshal.ReadInt16(s, 80);
 			return ue;
 		}
 	}
