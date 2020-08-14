@@ -1341,7 +1341,8 @@ THook2(_CS_ONSERVERCMD, bool,
 	e.data = &se;
 	bool ret = runCscode(ActEvent.ONSERVERCMD, ActMode::BEFORE, e);
 	if (ret) {
-		e.result = ret = original(_this, cmd);
+		ret = original(_this, cmd);
+		e.result = ret;
 		e.mode = ActMode::AFTER;
 		runCscode(ActEvent.ONSERVERCMD, ActMode::AFTER, e);
 	}
@@ -1432,7 +1433,8 @@ THook2(_CS_ONUSEITEM, bool,
 	e.data = &ue;
 	bool ret = runCscode(ActEvent.ONUSEITEM, ActMode::BEFORE, e);
 	if (ret) {
-		e.result = ret = original(_this, item, pBlkpos, a4, v5, pBlk);
+		ret = original(_this, item, pBlkpos, a4, v5, pBlk);
+		e.result = ret;
 		e.mode = ActMode::AFTER;
 		runCscode(ActEvent.ONUSEITEM, ActMode::AFTER, e);
 	}
@@ -1458,7 +1460,8 @@ THook2(_CS_ONPLACEDBLOCK, bool,
 		e.data = &pe;
 		bool ret = runCscode(ActEvent.ONPLACEDBLOCK, ActMode::BEFORE, e);
 		if (ret) {
-			e.result = ret = original(_this, pBlk, pBlkpos, a4, pPlayer, _bool);
+			ret = original(_this, pBlk, pBlkpos, a4, pPlayer, _bool);
+			e.result = ret;
 			e.mode = ActMode::AFTER;
 			runCscode(ActEvent.ONPLACEDBLOCK, ActMode::AFTER, e);
 		}
@@ -1487,7 +1490,8 @@ THook2(_CS_ONDESTROYBLOCK, bool,
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONDESTROYBLOCK, ActMode::BEFORE, e);
 	if (ret) {
-		e.result = ret = original(_this, pBlkpos);
+		ret = original(_this, pBlkpos);
+		e.result = ret;
 		e.mode = ActMode::AFTER;
 		runCscode(ActEvent.ONDESTROYBLOCK, ActMode::AFTER, e);
 	}
@@ -1513,7 +1517,8 @@ THook2(_CS_ONCHESTBLOCKUSE, bool,
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONSTARTOPENCHEST, ActMode::BEFORE, e);
 	if (ret) {
-		e.result = ret = original(_this, pPlayer, pBlkpos);
+		ret = original(_this, pPlayer, pBlkpos);
+		e.result = ret;
 		e.mode = ActMode::AFTER;
 		runCscode(ActEvent.ONSTARTOPENCHEST, ActMode::AFTER, e);
 	}
@@ -1539,7 +1544,8 @@ THook2(_CS_ONBARRELBLOCKUSE, bool,
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONSTARTOPENBARREL, ActMode::BEFORE, e);
 	if (ret) {
-		e.result = ret = original(_this, pPlayer, pBlkpos);
+		ret = original(_this, pPlayer, pBlkpos);
+		e.result = ret;
 		e.mode = ActMode::AFTER;
 		runCscode(ActEvent.ONSTARTOPENBARREL, ActMode::AFTER, e);
 	}
@@ -1662,7 +1668,12 @@ THook2(_CS_ONCHANGEDIMENSION, bool,
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONCHANGEDIMENSION, ActMode::BEFORE, e);
 	if (ret) {
-		e.result = ret = original(_this, pPlayer, req);
+		ret = original(_this, pPlayer, req);
+		e.result = ret;
+		if (ret) {
+			// 此处刷新玩家信息
+			addPlayerInfo(&de, pPlayer);
+		}
 		e.mode = ActMode::AFTER;
 		runCscode(ActEvent.ONCHANGEDIMENSION, ActMode::AFTER, e);
 	}
@@ -1926,7 +1937,8 @@ THook2(_CS_ONATTACK, bool,
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONATTACK, ActMode::BEFORE, e);
 	if (ret) {
-		e.result = ret = original(pPlayer, pa);
+		ret = original(pPlayer, pa);
+		e.result = ret;
 		e.mode = ActMode::AFTER;
 		runCscode(ActEvent.ONATTACK, ActMode::AFTER, e);
 	}
