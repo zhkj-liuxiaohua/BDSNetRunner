@@ -8,6 +8,7 @@
  */
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -37,7 +38,7 @@ namespace CSR
         public bool COMMERCIAL {get{return mcommercial;}}
 
 		// 注册事件回调管理，避免回收
-		private Hashtable callbks = new Hashtable();
+		private Dictionary<string, ArrayList> callbks = new Dictionary<string, ArrayList>();
 
 		private IntPtr hLib;
         public MCCSAPI(String DLLPath, string ver, bool commercial)
@@ -231,6 +232,39 @@ namespace CSR
 			#endregion
 		}
 
+		// 保管一个事件
+		private void addcb(string k, EventCab cb)
+        {
+			ArrayList al;
+			if (callbks.TryGetValue(k, out al))
+			{
+				if (al != null)
+					al.Add(cb);
+				else
+				{
+					al = new ArrayList();
+					al.Add(cb);
+					callbks[k] = al;
+				}
+			}
+			else
+			{
+				al = new ArrayList();
+				al.Add(cb);
+				callbks[k] = al;
+			}
+		}
+		// 移除一个事件处理
+		private void removecb(string k, EventCab cb)
+        {
+			ArrayList al;
+			if (callbks.TryGetValue(k, out al))
+			{
+				if (al != null)
+					al.Remove(cb);
+			}
+		}
+
 		/// <summary>
 		/// 设置事件发生前监听
 		/// </summary>
@@ -242,7 +276,7 @@ namespace CSR
 			if (r)
             {
 				string k = "Before" + key;
-				callbks[k] = cb;
+				addcb(k, cb);
 			}
 			return r;
 		}
@@ -258,7 +292,7 @@ namespace CSR
 			if (r)
             {
 				string k = "After" + key;
-				callbks[k] = cb;
+				addcb(k, cb);
 			}
 			return r;
 		}
@@ -274,8 +308,7 @@ namespace CSR
 			if (r)
             {
 				string k = "Before" + key;
-				if (callbks[k] != null)
-					callbks.Remove(k);
+				removecb(k, cb);
 			}
 			return r;
 		}
@@ -291,8 +324,7 @@ namespace CSR
 			if (r)
             {
 				string k = "After" + key;
-				if (callbks[k] != null)
-					callbks.Remove(k);
+				removecb(k, cb);
 			}
 			return r;
 		}
