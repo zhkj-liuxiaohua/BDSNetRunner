@@ -7,6 +7,7 @@
  * 要改变这种模板请点击 工具|选项|代码编写|编辑标准头文件
  */
 using System;
+using System.Collections;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -34,6 +35,9 @@ namespace CSR
         /// 平台类型
         /// </summary>
         public bool COMMERCIAL {get{return mcommercial;}}
+
+		// 注册事件回调管理，避免回收
+		private Hashtable callbks = new Hashtable();
 
 		private IntPtr hLib;
         public MCCSAPI(String DLLPath, string ver, bool commercial)
@@ -234,7 +238,13 @@ namespace CSR
 		/// <param name="cb"></param>
 		/// <returns></returns>
 		public bool addBeforeActListener(string key, EventCab cb) {
-			return caddBeforeActEvent != null && caddBeforeActEvent(key, cb);
+			bool r = caddBeforeActEvent != null && caddBeforeActEvent(key, cb);
+			if (r)
+            {
+				string k = "Before" + key;
+				callbks[k] = cb;
+			}
+			return r;
 		}
 		
 		/// <summary>
@@ -244,7 +254,13 @@ namespace CSR
 		/// <param name="cb"></param>
 		/// <returns></returns>
 		public bool addAfterActListener(string key, EventCab cb) {
-			return caddAfterActEvent != null && caddAfterActEvent(key, cb);
+			bool r = caddAfterActEvent != null && caddAfterActEvent(key, cb);
+			if (r)
+            {
+				string k = "After" + key;
+				callbks[k] = cb;
+			}
+			return r;
 		}
 		
 		/// <summary>
@@ -254,7 +270,14 @@ namespace CSR
 		/// <param name="cb"></param>
 		/// <returns></returns>
 		public bool removeBeforeActListener(string key, EventCab cb) {
-			return cremoveBeforeAct != null && cremoveBeforeAct(key, cb);
+			bool r = cremoveBeforeAct != null && cremoveBeforeAct(key, cb);
+			if (r)
+            {
+				string k = "Before" + key;
+				if (callbks[k] != null)
+					callbks.Remove(k);
+			}
+			return r;
 		}
 		
 		/// <summary>
@@ -264,7 +287,14 @@ namespace CSR
 		/// <param name="cb"></param>
 		/// <returns></returns>
 		public bool removeAfterActListener(string key, EventCab cb) {
-			return cremoveAfterAct != null && cremoveAfterAct(key, cb);
+			bool r = cremoveAfterAct != null && cremoveAfterAct(key, cb);
+			if (r)
+            {
+				string k = "After" + key;
+				if (callbks[k] != null)
+					callbks.Remove(k);
+			}
+			return r;
 		}
 		
 		/// <summary>
