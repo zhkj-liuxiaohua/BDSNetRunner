@@ -22,7 +22,8 @@ static const wchar_t* ISFORCOMMERCIAL = L"1";
 static bool netregok = false;
 
 static void releaseNetFramework();
-
+void** getOriginalData(void*);
+HookErrorCode mTHook2(RVA, void*);
 
 static std::mutex mleftlock;
 
@@ -150,10 +151,26 @@ static bool runCscode(std::string key, ActMode mode, Events& eventData) {
 
 static ACTEVENT ActEvent;
 
+static std::unordered_map<std::string, VA*> sListens;		// 监听列表
+static std::unordered_map<std::string, bool> isListened;	// 是否已监听
+
 static bool addListener(std::string key, ActMode mode, bool(*func)(Events)) {
 	auto& funcs = (mode == ActMode::BEFORE) ? beforecallbacks :
 		aftercallbacks;
 	if (key != "" && func != NULL) {
+		if (!isListened[key]) {			// 动态挂载hook监听
+			VA* syms = sListens[key];
+			int hret = 0;
+			if (syms) {
+				for (VA i = 0, len = syms[0]; i < len; ++i) {								// 首数为sym长度
+					hret += (int)mTHook2((RVA)syms[(i * 2) + 1], (void*)syms[(i * 2) + 2]);	// 第一数为sym，第二数为func
+				}
+			}
+			if (hret) {
+				PR("[CSR] Some hooks wrong at event setting.");
+			}
+			isListened[key] = true;		// 只挂载一次
+		}
 		auto dv = funcs[key];
 		if (dv == NULL) {
 			dv = new std::vector<void*>();
@@ -1329,9 +1346,7 @@ THook2(_CS_ONLISTCMDREG, VA, MSSYM_B1QA5setupB1AE11ListCommandB2AAE22SAXAEAVComm
 }
 
 // 服务器后台输入指令
-THook2(_CS_ONSERVERCMD, bool,
-	MSSYM_MD5_b5c9e566146b3136e6fb37f0c080d91e,
-	VA _this, std::string* cmd) {
+static bool _CS_ONSERVERCMD(VA _this, std::string* cmd) {
 	Events e;
 	e.type = EventType::onServerCmd;
 	e.mode = ActMode::BEFORE;
@@ -1341,6 +1356,7 @@ THook2(_CS_ONSERVERCMD, bool,
 	e.data = &se;
 	bool ret = runCscode(ActEvent.ONSERVERCMD, ActMode::BEFORE, e);
 	if (ret) {
+		auto original = (bool(*)(VA, std::string*)) * getOriginalData(_CS_ONSERVERCMD);
 		ret = original(_this, cmd);
 		e.result = ret;
 		e.mode = ActMode::AFTER;
@@ -1349,11 +1365,12 @@ THook2(_CS_ONSERVERCMD, bool,
 	se.releaseAll();
 	return ret;
 }
+static VA ONSERVERCMD_SYMS[] = {1, MSSYM_MD5_b5c9e566146b3136e6fb37f0c080d91e, (VA)_CS_ONSERVERCMD };
+
 
 // 服务器后台指令输出
-THook2(_CS_ONSERVERCMDOUTPUT, VA,
-	MSSYM_MD5_b5f2f0a753fc527db19ac8199ae8f740,
-	VA handle, char* str, VA size) {
+static VA _CS_ONSERVERCMDOUTPUT(VA handle, char* str, VA size) {
+	auto original = (VA(*)(VA, char*, VA)) * getOriginalData(_CS_ONSERVERCMDOUTPUT);
 	if (handle == STD_COUT_HANDLE) {
 		Events e;
 		e.type = EventType::onServerCmdOutput;
@@ -1376,11 +1393,12 @@ THook2(_CS_ONSERVERCMDOUTPUT, VA,
 	}
 	return original(handle, str, size);
 }
+static VA ONSERVERCMDOUTPUT_SYMS[] = {1, MSSYM_MD5_b5f2f0a753fc527db19ac8199ae8f740, (VA)_CS_ONSERVERCMDOUTPUT};
+
 
 // 玩家选择表单
-THook2(_CS_ONFORMSELECT, void,
-	MSSYM_MD5_8b7f7560f9f8353e6e9b16449ca999d2,
-	VA _this, VA id, VA handle, ModalFormResponsePacket** fp) {
+static void _CS_ONFORMSELECT(VA _this, VA id, VA handle, ModalFormResponsePacket** fp) {
+	auto original = (void(*)(VA, VA, VA, ModalFormResponsePacket**)) * getOriginalData(_CS_ONFORMSELECT);
 	ModalFormResponsePacket* fmp = *fp;
 	Player* p = SYMCALL(Player*, MSSYM_B2QUE15getServerPlayerB1AE20ServerNetworkHandlerB2AAE20AEAAPEAVServerPlayerB2AAE21AEBVNetworkIdentifierB2AAA1EB1AA1Z,
 		handle, id, *(char*)((VA)fmp + 16));
@@ -1410,11 +1428,10 @@ THook2(_CS_ONFORMSELECT, void,
 	}
 	original(_this, id, handle, fp);
 }
+static VA ONFORMSELECT_SYMS[] = {1, MSSYM_MD5_8b7f7560f9f8353e6e9b16449ca999d2, (VA)_CS_ONFORMSELECT};
 
 // 玩家操作物品
-THook2(_CS_ONUSEITEM, bool,
-	MSSYM_B1QA9useItemOnB1AA8GameModeB2AAA4UEAAB1UE14NAEAVItemStackB2AAE12AEBVBlockPosB2AAA9EAEBVVec3B2AAA9PEBVBlockB3AAAA1Z,
-	void* _this, ItemStack* item, BlockPos* pBlkpos, unsigned __int8 a4, void* v5, Block* pBlk) {
+static bool _CS_ONUSEITEM(void* _this, ItemStack* item, BlockPos* pBlkpos, unsigned __int8 a4, void* v5, Block* pBlk) {
 	auto pPlayer = *reinterpret_cast<Player**>(reinterpret_cast<VA>(_this) + 8);
 	Events e;
 	e.type = EventType::onUseItem;
@@ -1433,6 +1450,7 @@ THook2(_CS_ONUSEITEM, bool,
 	e.data = &ue;
 	bool ret = runCscode(ActEvent.ONUSEITEM, ActMode::BEFORE, e);
 	if (ret) {
+		auto original = (bool(*)(void*, ItemStack*, BlockPos*, unsigned __int8, void*, Block*)) * getOriginalData(_CS_ONUSEITEM);
 		ret = original(_this, item, pBlkpos, a4, v5, pBlk);
 		e.result = ret;
 		e.mode = ActMode::AFTER;
@@ -1441,11 +1459,12 @@ THook2(_CS_ONUSEITEM, bool,
 	ue.releaseAll();
 	return ret;
 }
+static VA ONUSEITEM_SYMS[] = {1, MSSYM_B1QA9useItemOnB1AA8GameModeB2AAA4UEAAB1UE14NAEAVItemStackB2AAE12AEBVBlockPosB2AAA9EAEBVVec3B2AAA9PEBVBlockB3AAAA1Z,
+	(VA)_CS_ONUSEITEM};
 
 // 玩家放置方块
-THook2(_CS_ONPLACEDBLOCK, bool,
-	MSSYM_B1QA8mayPlaceB1AE11BlockSourceB2AAA4QEAAB1UE10NAEBVBlockB2AAE12AEBVBlockPosB2AAE10EPEAVActorB3AAUA1NB1AA1Z,
-	BlockSource* _this, Block* pBlk, BlockPos* pBlkpos, unsigned __int8 a4, struct Actor* pPlayer, bool _bool) {
+static bool _CS_ONPLACEDBLOCK(BlockSource* _this, Block* pBlk, BlockPos* pBlkpos, unsigned __int8 a4, struct Actor* pPlayer, bool _bool) {
+	auto original = (bool(*)(BlockSource*, Block*, BlockPos*, unsigned __int8, Actor*, bool)) * getOriginalData(_CS_ONPLACEDBLOCK);
 	if (pPlayer && checkIsPlayer(pPlayer)) {
 		Player* pp = (Player*)pPlayer;
 		Events e;
@@ -1470,11 +1489,12 @@ THook2(_CS_ONPLACEDBLOCK, bool,
 	}
 	return original(_this, pBlk, pBlkpos, a4, pPlayer, _bool);
 }
+static VA ONPLACEDBLOCK_SYMS[] = { 1, MSSYM_B1QA8mayPlaceB1AE11BlockSourceB2AAA4QEAAB1UE10NAEBVBlockB2AAE12AEBVBlockPosB2AAE10EPEAVActorB3AAUA1NB1AA1Z ,
+(VA)_CS_ONPLACEDBLOCK};
+
 
 // 玩家破坏方块
-THook2(_CS_ONDESTROYBLOCK, bool,
-	MSSYM_B2QUE20destroyBlockInternalB1AA8GameModeB2AAA4AEAAB1UE13NAEBVBlockPosB2AAA1EB1AA1Z,
-	void* _this, BlockPos* pBlkpos) {
+static bool _CS_ONDESTROYBLOCK(void* _this, BlockPos* pBlkpos) {
 	auto pPlayer = *reinterpret_cast<Player**>(reinterpret_cast<VA>(_this) + 8);
 	auto pBlockSource = *(BlockSource**)(*((VA*)_this + 1) + 800);
 	auto pBlk = pBlockSource->getBlock(pBlkpos);
@@ -1490,6 +1510,7 @@ THook2(_CS_ONDESTROYBLOCK, bool,
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONDESTROYBLOCK, ActMode::BEFORE, e);
 	if (ret) {
+		auto original = (bool(*)(void*, BlockPos*)) * getOriginalData(_CS_ONDESTROYBLOCK);
 		ret = original(_this, pBlkpos);
 		e.result = ret;
 		e.mode = ActMode::AFTER;
@@ -1498,11 +1519,11 @@ THook2(_CS_ONDESTROYBLOCK, bool,
 	de.releaseAll();
 	return ret;
 }
+static VA ONDESTROYBLOCK_SYMS[] = {1, MSSYM_B2QUE20destroyBlockInternalB1AA8GameModeB2AAA4AEAAB1UE13NAEBVBlockPosB2AAA1EB1AA1Z,
+	(VA)_CS_ONDESTROYBLOCK};
 
 // 玩家开箱准备
-THook2(_CS_ONCHESTBLOCKUSE, bool,
-	MSSYM_B1QA3useB1AE10ChestBlockB2AAA4UEBAB1UE11NAEAVPlayerB2AAE12AEBVBlockPosB3AAAA1Z,
-	void* _this, Player* pPlayer, BlockPos* pBlkpos) {
+static bool _CS_ONCHESTBLOCKUSE(void* _this, Player* pPlayer, BlockPos* pBlkpos) {
 	auto pBlockSource = (BlockSource*)((Level*)pPlayer->getLevel())->getDimension(pPlayer->getDimensionId())->getBlockSouce();
 	auto pBlk = pBlockSource->getBlock(pBlkpos);
 	Events e;
@@ -1517,6 +1538,7 @@ THook2(_CS_ONCHESTBLOCKUSE, bool,
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONSTARTOPENCHEST, ActMode::BEFORE, e);
 	if (ret) {
+		auto original = (bool(*)(void*, Player*, BlockPos*)) * getOriginalData(_CS_ONCHESTBLOCKUSE);
 		ret = original(_this, pPlayer, pBlkpos);
 		e.result = ret;
 		e.mode = ActMode::AFTER;
@@ -1525,11 +1547,11 @@ THook2(_CS_ONCHESTBLOCKUSE, bool,
 	de.releaseAll();
 	return ret;
 }
+static VA ONSTARTOPENCHEST_SYMS[] = { 1, MSSYM_B1QA3useB1AE10ChestBlockB2AAA4UEBAB1UE11NAEAVPlayerB2AAE12AEBVBlockPosB3AAAA1Z,
+	(VA)_CS_ONCHESTBLOCKUSE };
 
 // 玩家开桶准备
-THook2(_CS_ONBARRELBLOCKUSE, bool,
-	MSSYM_B1QA3useB1AE11BarrelBlockB2AAA4UEBAB1UE11NAEAVPlayerB2AAE12AEBVBlockPosB3AAAA1Z,
-	void* _this, Player* pPlayer, BlockPos* pBlkpos) {
+static bool _CS_ONBARRELBLOCKUSE(void* _this, Player* pPlayer, BlockPos* pBlkpos) {
 	auto pBlockSource = (BlockSource*)((Level*)pPlayer->getLevel())->getDimension(pPlayer->getDimensionId())->getBlockSouce();
 	auto pBlk = pBlockSource->getBlock(pBlkpos);
 	Events e;
@@ -1544,6 +1566,7 @@ THook2(_CS_ONBARRELBLOCKUSE, bool,
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONSTARTOPENBARREL, ActMode::BEFORE, e);
 	if (ret) {
+		auto original = (bool(*)(void*, Player*, BlockPos*)) * getOriginalData(_CS_ONBARRELBLOCKUSE);
 		ret = original(_this, pPlayer, pBlkpos);
 		e.result = ret;
 		e.mode = ActMode::AFTER;
@@ -1552,11 +1575,11 @@ THook2(_CS_ONBARRELBLOCKUSE, bool,
 	de.releaseAll();
 	return ret;
 }
+static VA ONSTARTOPENBARREL_SYMS[] = {1, MSSYM_B1QA3useB1AE11BarrelBlockB2AAA4UEBAB1UE11NAEAVPlayerB2AAE12AEBVBlockPosB3AAAA1Z,
+	(VA)_CS_ONBARRELBLOCKUSE};
 
 // 玩家关闭箱子
-THook2(_CS_ONSTOPOPENCHEST, void,
-	MSSYM_B1QA8stopOpenB1AE15ChestBlockActorB2AAE15UEAAXAEAVPlayerB3AAAA1Z,
-	void* _this, Player* pPlayer) {
+static void _CS_ONSTOPOPENCHEST(void* _this, Player* pPlayer) {
 	auto real_this = reinterpret_cast<void*>(reinterpret_cast<VA>(_this) - 248);
 	auto pBlkpos = reinterpret_cast<BlockActor*>(real_this)->getPosition();
 	auto pBlockSource = (BlockSource*)((Level*)pPlayer->getLevel())->getDimension(pPlayer->getDimensionId())->getBlockSouce();
@@ -1572,17 +1595,18 @@ THook2(_CS_ONSTOPOPENCHEST, void,
 	memcpy(&de.position, pBlkpos->getPosition(), sizeof(BPos3));
 	e.data = &de;
 	runCscode(ActEvent.ONSTOPOPENCHEST, ActMode::BEFORE, e);
+	auto original = (void(*)(void*, Player*)) * getOriginalData(_CS_ONSTOPOPENCHEST);
 	original(_this, pPlayer);
 	e.result = true;
 	e.mode = ActMode::AFTER;
 	runCscode(ActEvent.ONSTOPOPENCHEST, ActMode::AFTER, e);
 	de.releaseAll();
 }
+static VA ONSTOPOPENCHEST_SYMS[] = {1, MSSYM_B1QA8stopOpenB1AE15ChestBlockActorB2AAE15UEAAXAEAVPlayerB3AAAA1Z,
+	(VA)_CS_ONSTOPOPENCHEST};
 
 // 玩家关闭木桶
-THook2(_CS_STOPOPENBARREL, void,
-	MSSYM_B1QA8stopOpenB1AE16BarrelBlockActorB2AAE15UEAAXAEAVPlayerB3AAAA1Z,
-	void* _this, Player* pPlayer) {
+static void _CS_STOPOPENBARREL(void* _this, Player* pPlayer) {
 	auto real_this = reinterpret_cast<void*>(reinterpret_cast<VA>(_this) - 248);
 	auto pBlkpos = reinterpret_cast<BlockActor*>(real_this)->getPosition();
 	auto pBlockSource = (BlockSource*)((Level*)pPlayer->getLevel())->getDimension(pPlayer->getDimensionId())->getBlockSouce();
@@ -1598,17 +1622,19 @@ THook2(_CS_STOPOPENBARREL, void,
 	memcpy(&de.position, pBlkpos->getPosition(), sizeof(BPos3));
 	e.data = &de;
 	runCscode(ActEvent.ONSTOPOPENBARREL, ActMode::BEFORE, e);
+	auto original = (void(*)(void*, Player*)) * getOriginalData(_CS_STOPOPENBARREL);
 	original(_this, pPlayer);
 	e.result = true;
 	e.mode = ActMode::AFTER;
 	runCscode(ActEvent.ONSTOPOPENBARREL, ActMode::AFTER, e);
 	de.releaseAll();
 }
+static VA ONSTOPOPENBARREL_SYMS[] = {1, MSSYM_B1QA8stopOpenB1AE16BarrelBlockActorB2AAE15UEAAXAEAVPlayerB3AAAA1Z,
+	(VA)_CS_STOPOPENBARREL};
 
 // 玩家放入取出数量
-THook2(_CS_ONSETSLOT, void,
-	MSSYM_B1QE23containerContentChangedB1AE19LevelContainerModelB2AAA6UEAAXHB1AA1Z,
-	LevelContainerModel* a1, VA a2) {
+static void _CS_ONSETSLOT(LevelContainerModel* a1, VA a2) {
+	auto original = (void(*)(LevelContainerModel*, VA)) * getOriginalData(_CS_ONSETSLOT);
 	VA v3 = *((VA*)a1 + 26);				// IDA LevelContainerModel::_getContainer
 	BlockSource* bs = *(BlockSource**)(*(VA*)(v3 + 808) + 72);
 	BlockPos* pBlkpos = (BlockPos*)((char*)a1 + 216);
@@ -1654,11 +1680,11 @@ THook2(_CS_ONSETSLOT, void,
 	else
 		original(a1, a2);
 }
+static VA ONSETSLOT_SYMS[] = {1, MSSYM_B1QE23containerContentChangedB1AE19LevelContainerModelB2AAA6UEAAXHB1AA1Z,
+	(VA)_CS_ONSETSLOT};
 
 // 玩家切换维度
-THook2(_CS_ONCHANGEDIMENSION, bool,
-	MSSYM_B2QUE21playerChangeDimensionB1AA5LevelB2AAA4AEAAB1UE11NPEAVPlayerB2AAE26AEAVChangeDimensionRequestB3AAAA1Z,
-	void* _this, Player* pPlayer, void* req) {
+static bool _CS_ONCHANGEDIMENSION(void* _this, Player* pPlayer, void* req) {
 	Events e;
 	e.type = EventType::onChangeDimension;
 	e.mode = ActMode::BEFORE;
@@ -1668,6 +1694,7 @@ THook2(_CS_ONCHANGEDIMENSION, bool,
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONCHANGEDIMENSION, ActMode::BEFORE, e);
 	if (ret) {
+		auto original = (bool(*)(void*, Player*, void*)) * getOriginalData(_CS_ONCHANGEDIMENSION);
 		ret = original(_this, pPlayer, req);
 		e.result = ret;
 		if (ret) {
@@ -1680,11 +1707,11 @@ THook2(_CS_ONCHANGEDIMENSION, bool,
 	de.releaseAll();
 	return ret;
 }
+static VA ONCHANGEDIMENSION_SYMS[] = {1, MSSYM_B2QUE21playerChangeDimensionB1AA5LevelB2AAA4AEAAB1UE11NPEAVPlayerB2AAE26AEAVChangeDimensionRequestB3AAAA1Z ,
+	(VA)_CS_ONCHANGEDIMENSION};
 
 // 生物死亡
-THook2(_CS_ONMOBDIE, void,
-	MSSYM_B1QA3dieB1AA3MobB2AAE26UEAAXAEBVActorDamageSourceB3AAAA1Z,
-	Mob* _this, void* dmsg) {
+static void _CS_ONMOBDIE(Mob* _this, void* dmsg) {
 	Events e;
 	e.type = EventType::onMobDie;
 	e.mode = ActMode::BEFORE;
@@ -1694,6 +1721,7 @@ THook2(_CS_ONMOBDIE, void,
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONMOBDIE, ActMode::BEFORE, e);
 	if (ret) {
+		auto original = (void(*)(Mob*, void*))*getOriginalData(_CS_ONMOBDIE);
 		original(_this, dmsg);
 		e.result = ret;
 		e.mode = ActMode::AFTER;
@@ -1701,10 +1729,10 @@ THook2(_CS_ONMOBDIE, void,
 	}
 	de.releaseAll();
 }
+static VA ONMOBDIE_SYMS[] = { 1, MSSYM_B1QA3dieB1AA3MobB2AAE26UEAAXAEBVActorDamageSourceB3AAAA1Z, (VA)_CS_ONMOBDIE };
 
 // 玩家重生
-THook2(_CS_PLAYERRESPAWN, void, MSSYM_B1QA7respawnB1AA6PlayerB2AAA7UEAAXXZ,
-	Player* pPlayer) {
+static void _CS_PLAYERRESPAWN(Player* pPlayer) {
 	Events e;
 	e.type = EventType::onRespawn;
 	e.mode = ActMode::BEFORE;
@@ -1714,6 +1742,7 @@ THook2(_CS_PLAYERRESPAWN, void, MSSYM_B1QA7respawnB1AA6PlayerB2AAA7UEAAXXZ,
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONRESPAWN, ActMode::BEFORE, e);
 	if (ret) {
+		auto original = (void(*)(Player*)) * getOriginalData(_CS_PLAYERRESPAWN);
 		original(pPlayer);
 		e.result = ret;
 		e.mode = ActMode::AFTER;
@@ -1721,11 +1750,10 @@ THook2(_CS_PLAYERRESPAWN, void, MSSYM_B1QA7respawnB1AA6PlayerB2AAA7UEAAXXZ,
 	}
 	de.releaseAll();
 }
+static VA ONRESPAWN_SYMS[] = { 1, MSSYM_B1QA7respawnB1AA6PlayerB2AAA7UEAAXXZ, (VA)_CS_PLAYERRESPAWN };
 
 // 聊天消息
-THook2(_CS_ONCHAT, void,
-	MSSYM_MD5_ad251f2fd8c27eb22c0c01209e8df83c,
-	void* _this, std::string& player_name, std::string& target, std::string& msg, std::string& chat_style) {
+static void _CS_ONCHAT(void* _this, std::string& player_name, std::string& target, std::string& msg, std::string& chat_style) {
 	Events e;
 	e.type = EventType::onChat;
 	e.mode = ActMode::BEFORE;
@@ -1738,6 +1766,7 @@ THook2(_CS_ONCHAT, void,
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONCHAT, ActMode::BEFORE, e);
 	if (ret) {
+		auto original = (void(*)(void*, std::string&, std::string&, std::string&, std::string&)) * getOriginalData(_CS_ONCHAT);
 		original(_this, player_name, target, msg, chat_style);
 		e.result = ret;
 		e.mode = ActMode::AFTER;
@@ -1745,11 +1774,10 @@ THook2(_CS_ONCHAT, void,
 	}
 	de.releaseAll();
 }
+static VA ONCHAT_SYMS[] = {1, MSSYM_MD5_ad251f2fd8c27eb22c0c01209e8df83c, (VA)_CS_ONCHAT };
 
 // 输入文本
-THook2(_CS_ONINPUTTEXT, void,
-	MSSYM_B1QA6handleB1AE20ServerNetworkHandlerB2AAE26UEAAXAEBVNetworkIdentifierB2AAE14AEBVTextPacketB3AAAA1Z,
-	VA _this, VA id, TextPacket* tp) {
+static void _CS_ONINPUTTEXT(VA _this, VA id, TextPacket* tp) {
 	Player* p = SYMCALL(Player*, MSSYM_B2QUE15getServerPlayerB1AE20ServerNetworkHandlerB2AAE20AEAAPEAVServerPlayerB2AAE21AEBVNetworkIdentifierB2AAA1EB1AA1Z,
 		_this, id, *((char*)tp + 16));
 	Events e;
@@ -1764,6 +1792,7 @@ THook2(_CS_ONINPUTTEXT, void,
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONINPUTTEXT, ActMode::BEFORE, e);
 	if (ret) {
+		auto original = (void(*)(VA, VA, TextPacket*)) * getOriginalData(_CS_ONINPUTTEXT);
 		original(_this, id, tp);
 		e.result = ret;
 		e.mode = ActMode::AFTER;
@@ -1771,6 +1800,8 @@ THook2(_CS_ONINPUTTEXT, void,
 	}
 	de.releaseAll();
 }
+static VA ONINPUTTEXT_SYMS[] = { 1, MSSYM_B1QA6handleB1AE20ServerNetworkHandlerB2AAE26UEAAXAEBVNetworkIdentifierB2AAE14AEBVTextPacketB3AAAA1Z,
+	(VA)_CS_ONINPUTTEXT };
 
 // MakeWP
 static Player* MakeWP(CommandOrigin& ori) {
@@ -1781,9 +1812,8 @@ static Player* MakeWP(CommandOrigin& ori) {
 }
 
 // 玩家执行指令
-THook2(_CS_ONINPUTCOMMAND, VA,
-	MSSYM_B1QE14executeCommandB1AE17MinecraftCommandsB2AAA4QEBAB1QE10AUMCRESULTB2AAA1VB2QDA6sharedB1UA3ptrB1AE15VCommandContextB3AAAA3stdB3AAUA1NB1AA1Z,
-	VA _this, VA mret, std::shared_ptr<CommandContext> x, char a4) {
+static VA _CS_ONINPUTCOMMAND(VA _this, VA mret, std::shared_ptr<CommandContext> x, char a4) {
+	auto original = (VA(*)(VA, VA, std::shared_ptr<CommandContext>, char)) * getOriginalData(_CS_ONINPUTCOMMAND);
 	Player* p = MakeWP(x->getOrigin());
 	if (p) {
 		Events e;
@@ -1809,6 +1839,8 @@ THook2(_CS_ONINPUTCOMMAND, VA,
 	}
 	return original(_this, mret, x, a4);
 }
+static VA ONINPUTCOMMAND_SYMS[] = { 1, MSSYM_B1QE14executeCommandB1AE17MinecraftCommandsB2AAA4QEBAB1QE10AUMCRESULTB2AAA1VB2QDA6sharedB1UA3ptrB1AE15VCommandContextB3AAAA3stdB3AAUA1NB1AA1Z,
+	(VA)_CS_ONINPUTCOMMAND };
 
 // 玩家加载名字
 THook2(_CS_ONCREATEPLAYER, VA,
@@ -1896,35 +1928,34 @@ THook2(_CS_ONLOGOUT, VA,
 }
 
 // 玩家移动信息构筑
-THook2(_CS_ONMOVE, VA,
-	MSSYM_B2QQE170MovePlayerPacketB2AAA4QEAAB1AE10AEAVPlayerB2AAE14W4PositionModeB1AA11B1AA2HHB1AA1Z,
-	void* _this, Player* pPlayer, char v3, int v4, int v5) {
-	int reg = (beforecallbacks[ActEvent.ONMOVE] != NULL ? beforecallbacks[ActEvent.ONMOVE]->size() : 0) +
-		(aftercallbacks[ActEvent.ONMOVE] != NULL ? beforecallbacks[ActEvent.ONMOVE]->size() : 0);
+static VA _CS_ONMOVE(void* _this, Player* pPlayer, char v3, int v4, int v5) {
+	auto original = (VA(*)(void*, Player*, char, int, int)) * getOriginalData(_CS_ONMOVE);
+	VA reg = (beforecallbacks[ActEvent.ONMOVE] != NULL ? beforecallbacks[ActEvent.ONMOVE]->size() : 0) +
+		(aftercallbacks[ActEvent.ONMOVE] != NULL ? aftercallbacks[ActEvent.ONMOVE]->size() : 0);
 	if (!reg)
 		return original(_this, pPlayer, v3, v4, v5);
 	VA reto = 0;
 	Events e;
+	MoveEvent de;
 	e.type = EventType::onMove;
 	e.mode = ActMode::BEFORE;
 	e.result = 0;
-	MoveEvent de;
 	addPlayerInfo(&de, pPlayer);
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONMOVE, ActMode::BEFORE, e);
 	if (ret) {
-		reto = original(_this, pPlayer, v3, v3, v4);
+		reto = original(_this, pPlayer, v3, v4, v5);
 		e.result = ret;
 		runCscode(ActEvent.ONMOVE, ActMode::AFTER, e);
 	}
 	de.releaseAll();
 	return reto;
 }
+static VA ONMOVE_SYMS[] = {1, MSSYM_B2QQE170MovePlayerPacketB2AAA4QEAAB1AE10AEAVPlayerB2AAE14W4PositionModeB1AA11B1AA2HHB1AA1Z,
+	(VA)_CS_ONMOVE};
 
 // 玩家攻击监听
-THook2(_CS_ONATTACK, bool,
-	MSSYM_B1QA6attackB1AA6PlayerB2AAA4UEAAB1UE10NAEAVActorB3AAAA1Z,
-	Player* pPlayer, Actor* pa) {
+static bool _CS_ONATTACK(Player* pPlayer, Actor* pa) {
 	Events e;
 	e.type = EventType::onAttack;
 	e.mode = ActMode::BEFORE;
@@ -1937,6 +1968,7 @@ THook2(_CS_ONATTACK, bool,
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONATTACK, ActMode::BEFORE, e);
 	if (ret) {
+		auto original = (bool(*)(Player*, Actor*)) * getOriginalData(_CS_ONATTACK);
 		ret = original(pPlayer, pa);
 		e.result = ret;
 		e.mode = ActMode::AFTER;
@@ -1945,11 +1977,11 @@ THook2(_CS_ONATTACK, bool,
 	de.releaseAll();
 	return ret;
 }
+static VA ONATTACK_SYMS[] = {1, MSSYM_B1QA6attackB1AA6PlayerB2AAA4UEAAB1UE10NAEAVActorB3AAAA1Z,
+	(VA)_CS_ONATTACK};
 
 // 全图范围爆炸监听
-THook2(_CS_ONLEVELEXPLODE, void,
-	MSSYM_B1QA7explodeB1AA5LevelB2AAE20QEAAXAEAVBlockSourceB2AAA9PEAVActorB2AAA8AEBVVec3B2AAA1MB1UA4N3M3B1AA1Z,
-	VA _this, BlockSource* a2, Actor* a3, Vec3* a4, float a5, bool a6, bool a7, float a8, bool a9) {
+static void _CS_ONLEVELEXPLODE(VA _this, BlockSource* a2, Actor* a3, Vec3* a4, float a5, bool a6, bool a7, float a8, bool a9) {
 	Events e;
 	e.type = EventType::onLevelExplode;
 	e.mode = ActMode::BEFORE;
@@ -1970,6 +2002,7 @@ THook2(_CS_ONLEVELEXPLODE, void,
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONLEVELEXPLODE, ActMode::BEFORE, e);
 	if (ret) {
+		auto original = (void(*)(VA, BlockSource*, Actor*, Vec3*, float, bool, bool, float, bool)) * getOriginalData(_CS_ONLEVELEXPLODE);
 		original(_this, a2, a3, a4, a5, a6, a7, a8, a9);
 		e.result = ret;
 		e.mode = ActMode::AFTER;
@@ -1978,9 +2011,8 @@ THook2(_CS_ONLEVELEXPLODE, void,
 	de.releaseAll();
 }
 // 重生锚爆炸监听
-THook2(_CS_SETRESPWNEXPLOREDE, bool,
-	MSSYM_B1QE11trySetSpawnB1AE18RespawnAnchorBlockB2AAA2CAB1UE11NAEAVPlayerB2AAE12AEBVBlockPosB2AAE15AEAVBlockSourceB2AAA9AEAVLevelB3AAAA1Z,
-	Player* pPlayer, BlockPos* a2, BlockSource* a3, Level* a4) {
+static bool _CS_SETRESPWNEXPLOREDE(Player* pPlayer, BlockPos* a2, BlockSource* a3, Level* a4) {
+	auto original = (bool(*)(Player*, BlockPos*, BlockSource*, Level*)) * getOriginalData(_CS_SETRESPWNEXPLOREDE);
 	auto v8 = a3->getBlock(a2);
 	auto v9 = (VA*)*((VA*)v8 + 2);
 	VA qwt = SYM_OBJECT(VA, (MSSYM_B1QE19RespawnAnchorChargeB1AE13VanillaStatesB2AAA23VB2QDE16ItemStateVariantB1AA1HB2AAA1B + 8));
@@ -2028,6 +2060,45 @@ THook2(_CS_SETRESPWNEXPLOREDE, bool,
 	}
 	return original(pPlayer, a2, a3, a4);
 }
+static VA ONLEVELEXPLODE_SYMS[] = { 2, MSSYM_B1QA7explodeB1AA5LevelB2AAE20QEAAXAEAVBlockSourceB2AAA9PEAVActorB2AAA8AEBVVec3B2AAA1MB1UA4N3M3B1AA1Z,
+	(VA)_CS_ONLEVELEXPLODE,
+	MSSYM_B1QE11trySetSpawnB1AE18RespawnAnchorBlockB2AAA2CAB1UE11NAEAVPlayerB2AAE12AEBVBlockPosB2AAE15AEAVBlockSourceB2AAA9AEAVLevelB3AAAA1Z,
+	(VA)_CS_SETRESPWNEXPLOREDE };
+
+// 初始化各类hook的事件绑定，基于构造函数
+static struct EventSymsInit{
+public:
+	EventSymsInit() {
+		sListens[ActEvent.ONSERVERCMD] = ONSERVERCMD_SYMS;
+		sListens[ActEvent.ONSERVERCMDOUTPUT] = ONSERVERCMDOUTPUT_SYMS;
+		sListens[ActEvent.ONFORMSELECT] = ONFORMSELECT_SYMS;
+		sListens[ActEvent.ONUSEITEM] = ONUSEITEM_SYMS;
+		sListens[ActEvent.ONMOVE] = ONMOVE_SYMS;
+		sListens[ActEvent.ONATTACK] = ONATTACK_SYMS;
+		sListens[ActEvent.ONPLACEDBLOCK] = ONPLACEDBLOCK_SYMS;
+		sListens[ActEvent.ONDESTROYBLOCK] = ONDESTROYBLOCK_SYMS;
+		sListens[ActEvent.ONSTARTOPENCHEST] = ONSTARTOPENCHEST_SYMS;
+		sListens[ActEvent.ONSTARTOPENBARREL] = ONSTARTOPENBARREL_SYMS;
+		sListens[ActEvent.ONCHANGEDIMENSION] = ONCHANGEDIMENSION_SYMS;
+		isListened[ActEvent.ONLOADNAME] = true;
+		isListened[ActEvent.ONPLAYERLEFT] = true;
+		sListens[ActEvent.ONSTOPOPENCHEST] = ONSTOPOPENCHEST_SYMS;
+		sListens[ActEvent.ONSTOPOPENBARREL] = ONSTOPOPENBARREL_SYMS;
+		sListens[ActEvent.ONSETSLOT] = ONSETSLOT_SYMS;
+		sListens[ActEvent.ONMOBDIE] = ONMOBDIE_SYMS;
+		sListens[ActEvent.ONRESPAWN] = ONRESPAWN_SYMS;
+		sListens[ActEvent.ONCHAT] = ONCHAT_SYMS;
+		sListens[ActEvent.ONINPUTTEXT] = ONINPUTTEXT_SYMS;
+		sListens[ActEvent.ONINPUTCOMMAND] = ONINPUTCOMMAND_SYMS;
+		sListens[ActEvent.ONLEVELEXPLODE] = ONLEVELEXPLODE_SYMS;
+#if (COMMERCIAL)
+		isListened[ActEvent.ONMOBHURT] = true;
+		isListened[ActEvent.ONBLOCKCMD] = true;
+		isListened[ActEvent.ONNPCCMD] = true;
+		isListened[ActEvent.ONCOMMANDBLOCKUPDATE] = true;
+#endif
+	}
+} _EventSymsInit;
 
 static char localpath[MAX_PATH] = { 0 };
 
@@ -2180,10 +2251,12 @@ static void initMods()
 
 static std::unordered_map<void*, void**> hooks;
 
+// 获取指定原型存储位置
 void** getOriginalData(void* hook) {
 	return hooks[hook];
 }
 
+// 挂载hook
 HookErrorCode mTHook2(RVA sym, void* hook) {
 	hooks[hook] = new void* [1]{ 0 };
 	void** org = hooks[hook];
