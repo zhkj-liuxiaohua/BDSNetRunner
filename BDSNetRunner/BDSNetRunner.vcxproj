@@ -157,6 +157,7 @@
   <ItemGroup>
     <ClInclude Include="BDS.hpp" />
     <ClInclude Include="commands\commands.h" />
+    <ClInclude Include="Component.h" />
     <ClInclude Include="Events.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="GUI\SimpleForm.h" />

@@ -69,11 +69,16 @@ struct BlockSource {
 	int getDimensionId() {					// IDA Dimension::onBlockChanged
 		return *(int*)(*((VA*)this + 4) + 192);
 	}
+	// 获取指定范围内所有实体
+	std::vector<VA*>* getEntities(VA *rect) {
+		return SYMCALL(std::vector<VA*>*, MSSYM_MD5_73d55bcf0da8c45a15024daf84014ad7,
+			this, 0, rect, 1);
+	}
 };
 
 struct Dimension {
 	// 获取方块源
-	VA getBlockSouce() {					// IDA Level::tickEntities
+	VA getBlockSource() {					// IDA Level::tickEntities
 		return *((VA*)this + 9);
 	}
 };
@@ -117,12 +122,113 @@ struct Vec3 {
 	}
 };
 
+// 区域范围结构体
+struct AABB {
+	Vec3 min;
+	Vec3 max;
+	bool empty;
+
+	// 重设两点
+	void set(float x1, float y1, float z1, float x2, float y2, float z2) {
+		min.x = std::min<float>(x1, x2);
+		min.y = std::min<float>(y1, y2);
+		min.z = std::min<float>(z1, z2);
+		max.x = std::max<float>(x1, x2);
+		max.y = std::max<float>(y1, y2);
+		max.z = std::max<float>(z1, z2);
+		empty = (min.x == 0.0 && min.y == 0.0 && min.z == 0.0 &&
+			max.x == 0.0 && max.y == 0.0 && max.z == 0.0);
+	}
+	// 从两点间获取一个区域
+	bool fromPoints(Vec3 *a, Vec3 *b) {
+		if (!a || !b)
+			return false;
+		min.x = std::min<float>(a->x, b->x);
+		min.y = std::min<float>(a->y, b->y);
+		min.z = std::min<float>(a->z, b->z);
+		max.x = std::max<float>(a->x, b->x);
+		max.y = std::max<float>(a->y, b->y);
+		max.z = std::max<float>(a->z, b->z);
+		empty = (min.x == 0.0 && min.y == 0.0 && min.z == 0.0 &&
+			max.x == 0.0 && max.y == 0.0 && max.z == 0.0);
+		return true;
+	}
+};
+
+// 玩家转角结构体
+struct Vec2 {
+	float x;
+	float y;
+};
 
 struct MobEffectInstance {
 	char fill[0x1C];
 };
 
 struct Actor {
+#pragma region 通用属性
+	// 导出API，获取穿戴信息，只读
+	static std::string sgetArmorContainer(Actor*);
+	// 导出API，获取攻击力
+	static std::string sgetAttack(Actor*);
+	// 导出API，设置攻击力
+	static bool ssetAttack(Actor*, const char*);
+	// 导出API，获取碰撞箱
+	static std::string sgetCollisionBox(Actor*);
+	// 导出API，设置碰撞箱
+	static bool ssetCollisionBox(Actor*, const char*);
+	// damage_sensor，伤害指示器，复杂类型，略
+	// equipment，装备掉率列表，复杂类型，略
+	// equippable，允许装备内容列表，复杂类型，略
+	// explode，爆炸力，复杂类型，略
+	
+	// 导出API，获取主副手装备，只读
+	static std::string sgetHandContainer(Actor*);
+	// healable，补品列表，复杂类型，略
+
+	// 导出API，获取生命值
+	static std::string sgetHealth(Actor*);
+	// 导出API，设置生命值
+	static bool ssetHealth(Actor*, const char*);
+	// interact，玩家与实体的交互动作，复杂类型，略
+	// inventory，实体背包类型，复杂类型，略
+
+	// 导出API，获取实体容器列表，只读
+	static std::string sgetInventoryContainer(Actor*);
+	// lookat，敌对关注，复杂类型，略
+	// nameable，自定义名称相关属性，复杂类型，略
+	
+	// 导出API，获取名称信息
+	static std::string sgetName(Actor*);
+	// 导出API，设置名称信息，是否一直显示
+	static bool ssetName(Actor*, const char*, bool);
+	// 导出API，获取三维坐标信息
+	static std::string sgetPosition(Actor*);
+	// 导出API，设置三维坐标
+	static bool ssetPosition(Actor*, const char*);
+	// 导出API，获取实体转角信息
+	static std::string sgetRotation(Actor*);
+	// 导出API，设置实体转角
+	static bool ssetRotation(Actor*, const char*);
+	// shooter，定义实体发射飞行物属性，需要实体具有projectile组件，复杂类型，略
+	// spawn_entity，定义实体诞生其它新实体的属性（如鸡等），复杂类型，略
+	// teleport，定义实体自随机传送属性（如末影人等），复杂类型，略
+	// tick_world，实体可用更新域、于世界的刷新行为等，复杂类型，略
+	
+	// 导出API，获取维度ID，只读
+	static int sgetDimensionId(Actor*);
+	// 导出API，获取实体类型ID，只读
+	static int sgetEntityTypeId(Actor*);
+	// 导出API，获取查询ID，只读
+	static VA sgetUniqueID(Actor*);
+	// 导出API，移除该实体
+	static bool sremove(Actor*);
+	// 导出API，根据查询ID反查实体指针
+	static Actor* sgetfromUniqueID(VA);
+	// 导出API，查询指定维度指定坐标范围内所有实体
+	static std::vector<VA*>* sgetEntities(int, float, float, float, float, float, float);
+#pragma endregion
+
 	// 取方块源
 	BlockSource* getRegion() {
 		return *reinterpret_cast<BlockSource**>(reinterpret_cast<VA>(this) + 414 * sizeof(void*));
@@ -222,7 +328,13 @@ struct Mob : Actor {
 	}
 };
 struct Player : Mob {
-public:
+#pragma region 通用属性
+	// 导出API，获取热键装备列表，只读
+	static std::string sgetHotbarContainer(Player*);
+	// 导出API，获取玩家uuid，只读
+	static std::string sgetUuid(Player*);
+#pragma endregion
+
 	// 取uuid
 	MCUUID* getUuid() {				// IDA ServerNetworkHandler::_createNewPlayer
 		return (MCUUID*)((char*)this + 2720);

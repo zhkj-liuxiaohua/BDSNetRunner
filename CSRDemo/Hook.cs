@@ -47,13 +47,18 @@ namespace CSRDemo
 		/// <param name="a1">ServerScoreboard句柄</param>
 		/// <param name="player">player指针</param>
 		/// <returns></returns>
-		private static readonly ONCREATEPLAYER_Func cs_crthookptr = (ulong a1, IntPtr player) =>{
+		private static readonly ONCREATEPLAYER_Func cs_crthookptr = (ulong a1, IntPtr playerptr) =>{
 			Console.WriteLine("[c# hook] A player is join.");
-			Symcall.setPermission(mcapi, player, 3);	// 若参数为3，则op模式可使用kick
+			if (mcapi != null && string.Compare(mcapi.VERSION, "1.16.40.2") >= 0) {
+				CsPlayer vp = new CsPlayer(mcapi, playerptr);       // player指针或可参与构造组件对象
+				if (vp != null)
+					Console.WriteLine("[c# hook] playername={0}", vp.getName());
+			}
+			Symcall.setPermission(mcapi, playerptr, 4);	// 若参数为4，则op模式可使用kick、选择器
 			Thread t = new Thread(releasehook);         // 延时卸载钩子，也可于当前线程末尾时机进行卸载，也可不卸载
 			t.Start();
 			ONCREATEPLAYER_Func org = Marshal.GetDelegateForFunctionPointer(_CS_ONCREATEPLAYER_org, typeof(ONCREATEPLAYER_Func)) as ONCREATEPLAYER_Func;
-			return org(a1, player);
+			return org(a1, playerptr);
 		};
 
 		// 初始化hook
@@ -66,7 +71,10 @@ namespace CSRDemo
 			RVAs["1.16.10.2"] = a2;
 			ArrayList a3 = new ArrayList(new int[] { 0x00BA3560, 0x0042D250, 0x004F0920 });
 			RVAs["1.16.20.3"] = a3;
-			try {
+			ArrayList a4 = new ArrayList(new int[] { 0x00BA1200, 0x0042D260, 0x004F0930 });
+			RVAs["1.16.40.2"] = a4;
+			try
+			{
 				ArrayList rval = null;
 				if (RVAs.TryGetValue(api.VERSION, out rval)) {
 					if (rval != null && rval.Count > 0) {

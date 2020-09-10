@@ -7,6 +7,7 @@
  * 要改变这种模板请点击 工具|选项|代码编写|编辑标准头文件
  */
 using System;
+using System.Collections;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -183,6 +184,23 @@ namespace CSR
 	}
 	public struct Vec3 {
 		public float x, y, z;
+	}
+
+	[StructLayoutAttribute(LayoutKind.Sequential)]
+	public struct Std_Vector
+	{
+		public IntPtr data;
+		public IntPtr last;
+		public IntPtr end;
+		// 从std::vector中读取所有元素(限定为指针)
+		public ArrayList toList() {
+			ArrayList al = new ArrayList();
+			var l = ((ulong)last - (ulong)data) / (ulong)IntPtr.Size;
+			for (ulong i = 0; i < l; i++) {
+				al.Add(Marshal.ReadIntPtr(data, (int)(i * (ulong)IntPtr.Size)));
+			}
+			return al;
+		}
 	}
 
 	[StructLayoutAttribute(LayoutKind.Sequential)]
@@ -404,6 +422,7 @@ namespace CSR
 		protected Vec3 mXYZ;
 		protected int mdimensionid;
 		protected bool misstand;
+		protected IntPtr mplayer;
 		/// <summary>
 		/// 玩家名字
 		/// </summary>
@@ -424,6 +443,10 @@ namespace CSR
 		/// 玩家是否立足于方块/悬空
 		/// </summary>
 		public bool isstand {get{return misstand;}}
+		/// <summary>
+		/// 玩家指针
+		/// </summary>
+		public IntPtr playerPtr { get { return mplayer; } }
 		protected void loadData(IntPtr s) {
 			// 此处为转换过程
 			mplayername = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 0));
@@ -464,6 +487,7 @@ namespace CSR
 			fse.muuid = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 40));
 			fse.mselected = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 48));
 			fse.mformid = Marshal.ReadInt32(s, 56);
+			fse.mplayer = Marshal.ReadIntPtr(s, 64);
 			return fse;
 		}
 	}
@@ -515,7 +539,8 @@ namespace CSR
 			ue.mitemid = Marshal.ReadInt16(s, 60);
 			ue.mitemaux = Marshal.ReadInt16(s, 62);
 			ue.mblockname = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 64));
-			ue.mblockid = Marshal.ReadInt16(s, 80);
+			ue.mblockid = Marshal.ReadInt16(s, 72);
+			ue.mplayer = Marshal.ReadIntPtr(s, 80);
 			return ue;
 		}
 	}
@@ -542,6 +567,7 @@ namespace CSR
 			mblockname = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 40));
 			mposition = (BPos3)Marshal.PtrToStructure(s + 48, typeof(BPos3));
 			mblockid = Marshal.ReadInt16(s, 60);
+			mplayer = Marshal.ReadIntPtr(s, 64);
 		}
 	}
 	
@@ -695,6 +721,7 @@ namespace CSR
 			le.mitemaux = Marshal.ReadInt16(s, 76);
 			le.mblockid = Marshal.ReadInt16(s, 78);
 			le.mitemid = Marshal.ReadInt16(s, 80);
+			le.mplayer = Marshal.ReadIntPtr(s, 88);
 			return le;
 		}
 		
@@ -711,6 +738,7 @@ namespace CSR
 			if (le == null)
 				return null;
 			le.loadData(e.data);
+			le.mplayer = Marshal.ReadIntPtr(e.data, 40);
 			return le;
 		}
 	}
@@ -726,6 +754,7 @@ namespace CSR
 		protected int mdimensionid;
 		protected int mdmcase;
 		protected bool misstand;
+		protected IntPtr mmob;
 		/// <summary>
 		/// 生物名称
 		/// </summary>
@@ -766,6 +795,10 @@ namespace CSR
 		/// 玩家是否立足于方块/悬空（附加信息）
 		/// </summary>
 		public bool isstand {get{return misstand;}}
+		/// <summary>
+		/// 生物指针
+		/// </summary>
+		public IntPtr mobPtr { get { return mmob; } }
 		protected void loadData(IntPtr s) {
 			// 此处为转换过程
 			mmobname = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 0));
@@ -792,6 +825,7 @@ namespace CSR
 			if (le == null)
 				return null;
 			le.loadData(e.data);
+			le.mmob = Marshal.ReadIntPtr(e.data, 72);
 			return le;
 		}
 	}
@@ -826,6 +860,7 @@ namespace CSR
 			le.mdmtype = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 72));
 			le.mhealth = StrTool.itof(Marshal.ReadInt32(s, 80));
 			le.mdmcount = Marshal.ReadInt32(s, 84);
+			le.mmob = Marshal.ReadIntPtr(s, 88);
 			return le;
 		}
 	}
@@ -841,6 +876,7 @@ namespace CSR
 			if (le == null)
 				return null;
 			le.loadData(e.data);
+			le.mplayer = Marshal.ReadIntPtr(e.data, 40);
 			return le;
 		}
 	}
@@ -902,6 +938,7 @@ namespace CSR
 			IntPtr s = e.data;
 			le.loadData(s);
 			le.mmsg = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 40));
+			le.mplayer = Marshal.ReadIntPtr(s, 48);
 			return le;
 		}
 	}
@@ -942,6 +979,7 @@ namespace CSR
 			le.mactortype = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 48));
 			le.mposition = (BPos3)Marshal.PtrToStructure(s+56, typeof(BPos3));
 			le.misblock = Marshal.ReadByte(s, 68) == 1;
+			le.mplayer = Marshal.ReadIntPtr(s, 72);
 			return le;
 		}
 	}
@@ -964,6 +1002,7 @@ namespace CSR
 			IntPtr s = e.data;
 			le.loadData(s);
 			le.mcmd = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 40));
+			le.mplayer = Marshal.ReadIntPtr(s, 48);
 			return le;
 		}
 	}
@@ -1034,6 +1073,7 @@ namespace CSR
 		protected int mactionid;
 		protected int mentityid;
 		protected int mdimensionid;
+		protected IntPtr mnpc;
 		/// <summary>
 		/// NPC名字
 		/// </summary>
@@ -1066,6 +1106,10 @@ namespace CSR
 		/// NPC所处维度ID
 		/// </summary>
 		public int dimensionid {get{return mdimensionid;}}
+		/// <summary>
+		/// NPC指针
+		/// </summary>
+		public IntPtr npcPtr { get { return mnpc; } }
 		public static new NpcCmdEvent getFrom(Events e)
 		{
 			var le = createHead(e, EventType.onNpcCmd, typeof(NpcCmdEvent)) as NpcCmdEvent;
@@ -1080,6 +1124,7 @@ namespace CSR
 			le.mactionid = Marshal.ReadInt32(s, 44);
 			le.mentityid = Marshal.ReadInt32(s, 48);
 			le.mdimensionid = Marshal.ReadInt32(s, 52);
+			le.mnpc = Marshal.ReadIntPtr(s, 56);
 			return le;
 		}
 	}
@@ -1093,6 +1138,7 @@ namespace CSR
 		protected string muuid;
 		protected string mxuid;
 		protected string mability;
+		protected IntPtr mplayer;
 		/// <summary>
 		/// 玩家名字
 		/// </summary>
@@ -1109,16 +1155,26 @@ namespace CSR
 		/// 玩家能力值列表（可选，商业版可用）
 		/// </summary>
 		public string ability {get{return mability;}}
+		/// <summary>
+		/// 玩家指针
+		/// </summary>
+		public IntPtr playerPtr { get { return mplayer; } }
+		protected void loadData(IntPtr s)
+		{
+			// 此处为转换过程
+			mplayername = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 0));
+			muuid = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 8));
+			mxuid = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 16));
+			mability = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 24));
+			mplayer = Marshal.ReadIntPtr(s, 32);
+		}
 		public static new LoadNameEvent getFrom(Events e)
 		{
 			var le = createHead(e, EventType.onLoadName, typeof(LoadNameEvent)) as LoadNameEvent;
 			if (le == null)
 				return null;
 			IntPtr s = e.data; // 此处为转换过程
-			le.mplayername = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 0));
-			le.muuid = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 8));
-			le.mxuid = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 16));
-			le.mability = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 24));
+			le.loadData(s);
 			return le;
 		}
 	}
@@ -1134,10 +1190,7 @@ namespace CSR
 			if (le == null)
 				return null;
 			IntPtr s = e.data;	// 此处为转换过程
-			le.mplayername = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 0));
-			le.muuid = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 8));
-			le.mxuid = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 16));
-			le.mability = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 24));
+			le.loadData(s);
 			return le;
 		}
 	}
@@ -1149,6 +1202,7 @@ namespace CSR
 			if (ate == null)
 				return null;
 			ate.loadData(e.data);
+			ate.mplayer = Marshal.ReadIntPtr(e.data, 40);
 			return ate;
 		}
 	}
@@ -1161,6 +1215,7 @@ namespace CSR
 		protected string mactorname;
 		protected string mactortype;
 		protected Vec3 mactorpos;
+		protected IntPtr mattacked;
 		/// <summary>
 		/// 被攻击实体名称
 		/// </summary>
@@ -1173,6 +1228,10 @@ namespace CSR
 		/// 被攻击实体所处位置
 		/// </summary>
 		public Vec3 actorpos {get{return mactorpos;}}
+		/// <summary>
+		/// 被击者实体指针
+		/// </summary>
+		public IntPtr attackedentityPtr { get { return mattacked; } }
 		public static new AttackEvent getFrom(Events e)
 		{
 			var ate = createHead(e, EventType.onAttack, typeof(AttackEvent)) as AttackEvent;
@@ -1183,6 +1242,8 @@ namespace CSR
 			ate.mactorname = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 40));
 			ate.mactortype = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 48));
 			ate.mactorpos = (Vec3)Marshal.PtrToStructure(s + 56, typeof(Vec3));
+			ate.mplayer = Marshal.ReadIntPtr(s, 72);
+			ate.mattacked = Marshal.ReadIntPtr(s, 80);
 			return ate;
 		}
 	}

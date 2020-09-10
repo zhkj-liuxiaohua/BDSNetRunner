@@ -1,7 +1,7 @@
 #pragma once
 #include "BDS.hpp"
 
-enum EventType : UINT16 {
+enum class EventType : UINT16 {
 	Nothing = 0,
 	onServerCmd = 1,
 	onServerCmdOutput = 2,
@@ -32,13 +32,13 @@ enum EventType : UINT16 {
 };
 
 // 监听模式
-static enum ActMode : UINT16
+static enum class ActMode : UINT16
 {
 	BEFORE = 0,
 	AFTER = 1
 };
 
-// 所有关键字
+// 所有事件关键字
 struct ACTEVENT {
 	const std::string ONSERVERCMD = u8"onServerCmd";
 	const std::string ONSERVERCMDOUTPUT = u8"onServerCmdOutput";
@@ -78,6 +78,8 @@ struct Events {
 	void* data;		// 原始数据指针
 };
 #pragma pack()
+
+//////////////// 属性追加规则：追加的所有属性，必须移动到继承后事件属性末尾，保证兼容性 ////////////////
 
 struct ServerCmdEvent {
 	char* cmd;	// 指令数据
@@ -133,6 +135,7 @@ struct FormSelectEvent : PlayerEvent {
 	char* uuid;			// 玩家uuid信息
 	char* selected;		// 表单回传的选择项信息
 	int formid;			// 表单ID
+	void* pplayer;		// 附加组件，玩家指针
 public:
 	FormSelectEvent() {
 		memset(this, 0, sizeof(FormSelectEvent));
@@ -157,6 +160,7 @@ struct UseItemEvent : PlayerEvent {
 	short itemaux;		// 物品特殊值
 	char* blockname;	// 操作方块名称
 	short blockid;		// 操作方块ID
+	void* pplayer;		// 附加组件，玩家指针
 public:
 	UseItemEvent() {
 		memset(this, 0, sizeof(UseItemEvent));
@@ -178,6 +182,7 @@ struct BlockEvent : PlayerEvent {
 	char* blockname;	// 方块名称
 	BPos3 position;		// 操作方块所在位置
 	short blockid;		// 方块ID
+	void* pplayer;		// 附加组件，玩家指针
 public:
 	BlockEvent() {
 		memset(this, 0, sizeof(BlockEvent));
@@ -218,7 +223,7 @@ struct SetSlotEvent : PlayerEvent {
 	short itemaux;		// 物品特殊值
 	short blockid;		// 方块ID
 	short itemid;		// 物品ID
-	
+	void* pplayer;		// 附加组件，玩家指针
 public:
 	SetSlotEvent() {
 		memset(this, 0, sizeof(SetSlotEvent));
@@ -238,9 +243,10 @@ public:
 
 
 struct ChangeDimensionEvent : PlayerEvent {
+	void* pplayer;		// 附加组件，玩家指针
 };
 
-struct MobDieEvent {
+struct MobDieBaseEvent {
 	char* mobname;		// 生物名称
 	char* playername;	// 玩家名字（若为玩家死亡，附加此信息）
 	char* dimension;	// 玩家所在维度（附加信息）
@@ -252,8 +258,8 @@ struct MobDieEvent {
 	int dmcase;			// 伤害具体原因ID
 	bool isstand;		// 玩家是否立足于方块/悬空（附加信息）
 public:
-	MobDieEvent() {
-		memset(this, 0, sizeof(MobDieEvent));
+	MobDieBaseEvent() {
+		memset(this, 0, sizeof(MobDieBaseEvent));
 	}
 	void releaseAll() {
 		if (mobname) {
@@ -283,10 +289,15 @@ public:
 	}
 };
 
-struct MobHurtEvent : MobDieEvent {
+struct MobDieEvent : MobDieBaseEvent {
+	void* pmob;		// 附加组件，玩家指针
+};
+
+struct MobHurtEvent : MobDieBaseEvent {
 	char* dmtype;	// 生物受伤类型
 	float health;	// 生物血量
 	int dmcount;	// 生物受伤具体值
+	void* pmob;		// 附加组件，生物指针
 public:
 	MobHurtEvent() {
 		memset(this, 0, sizeof(MobHurtEvent));
@@ -301,6 +312,7 @@ public:
 };
 
 struct RespawnEvent : PlayerEvent {
+	void* pplayer;		// 附加组件，玩家指针
 };
 
 struct ChatEvent {
@@ -333,7 +345,8 @@ public:
 };
 
 struct InputTextEvent : PlayerEvent {
-	char* msg;	// 输入的文本
+	char* msg;		// 输入的文本
+	void* pplayer;	// 附加组件，玩家指针
 public:
 	InputTextEvent() {
 		memset(this, 0, sizeof(InputTextEvent));
@@ -352,6 +365,7 @@ struct CommandBlockUpdateEvent : PlayerEvent {
 	char* actortype;// 实体类型（若被更新的是非方块，附加此信息）
 	BPos3 position;	// 命令方块所在位置
 	bool isblock;	// 是否是方块
+	void* pplayer;	// 附加组件，玩家指针
 public:
 	CommandBlockUpdateEvent() {
 		memset(this, 0, sizeof(CommandBlockUpdateEvent));
@@ -371,6 +385,7 @@ public:
 
 struct InputCommandEvent : PlayerEvent {
 	char* cmd;	// 玩家输入的指令
+	void* pplayer;	// 附加组件，玩家指针
 public:
 	InputCommandEvent() {
 		memset(this, 0, sizeof(InputCommandEvent));
@@ -421,6 +436,7 @@ struct NpcCmdEvent {
 	int actionid;		// 选择项
 	int entityid;		// NPC实体标识ID
 	int dimensionid;	// NPC所处维度ID
+	void* pnpc;			// 附加组件，npc指针
 public:
 	NpcCmdEvent() {
 		memset(this, 0, sizeof(NpcCmdEvent));
@@ -450,6 +466,7 @@ struct LoadNameEvent {
 	char* uuid;			// 玩家uuid字符串
 	char* xuid;			// 玩家xuid字符串
 	char* ability;		// 玩家能力值列表（可选，商业版可用）
+	void* pplayer;		// 附加组件，玩家指针
 public:
 	LoadNameEvent() {
 		memset(this, 0, sizeof(LoadNameEvent));
@@ -478,13 +495,16 @@ struct PlayerLeftEvent : LoadNameEvent {
 };
 
 struct MoveEvent : PlayerEvent {
+	void* pplayer;		// 附加组件，玩家指针
 };
 
 struct AttackEvent : PlayerEvent
 {
-	char* actorname;	// 被攻击实体名称
-	char* actortype;	// 被攻击实体类型
-	Vec3 actorpos;		// 被攻击实体所处位置
+	char* actorname;		// 被攻击实体名称
+	char* actortype;		// 被攻击实体类型
+	Vec3 actorpos;			// 被攻击实体所处位置
+	void* pattacker;		// 附加组件，玩家指针
+	void* pattackedentity;	// 附加组件，被攻击实体指针
 public:
 	AttackEvent() {
 		memset(this, 0, sizeof(AttackEvent));

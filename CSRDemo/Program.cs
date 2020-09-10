@@ -9,6 +9,9 @@ namespace CSRDemo
 	class Program {
 		private static MCCSAPI mcapi = null;
 
+		// 测试用的临时表单ID
+		private static uint tformid;
+
 		public static void init(MCCSAPI api) {
 			mcapi = api;
 			Console.OutputEncoding = Encoding.UTF8;
@@ -30,18 +33,98 @@ namespace CSRDemo
 				}
 				return true;
 			});
-			// 表单选择监听
-			api.addAfterActListener(EventKey.onFormSelect, x => {
-				Console.WriteLine("[CS] type = {0}, mode = {1}, result= {2}", x.type, x.mode, x.result);
-				var fe = BaseEvent.getFrom(x) as FormSelectEvent;
-				if (fe == null) return true;
-				if (fe.selected != "null") {
-					Console.WriteLine("玩家 {0} 选择了表单 id={1} ，selected={2}", fe.playername, fe.formid, fe.selected);
-				} else {
-					Console.WriteLine("玩家 {0} 取消了表单 id={1}", fe.playername, fe.formid);
+            // 表单选择监听
+            api.addAfterActListener(EventKey.onFormSelect, x => {
+                Console.WriteLine("[CS] type = {0}, mode = {1}, result= {2}", x.type, x.mode, x.result);
+                var fe = BaseEvent.getFrom(x) as FormSelectEvent;
+                if (fe == null) return true;
+				if (fe.formid != tformid)
+					return true;
+                if (fe.selected != "null"){
+                    Console.WriteLine("玩家 {0} 选择了表单 id={1} ，selected={2}", fe.playername, fe.formid, fe.selected);
+                    CsPlayer pl = new CsPlayer(api, fe.playerPtr);
+                    if (fe.selected == "0"){
+                        ulong bkid = pl.UniqueId;
+                        // 根据流水号反查，可能是实体，也可能是玩家
+                        var d = CsActor.getFromUniqueId(api, bkid) as CsPlayer;
+                        if (d != null){
+                            Console.WriteLine("UniqueId反查成功。");
+                            pl = d;
+                        }
+                        // 常规组件测试
+                        Console.WriteLine("玩家攻击力组件：{0}，玩家碰撞箱组件：{1}，玩家生命值组件：{2}，玩家位置组件：{3}，玩家转角组件：{4}" +
+                        "，玩家所处维度：{5}，玩家实体类型：{6}，玩家查询流水号：{7}，玩家UUID：{8}，玩家名字：{9}",
+                        pl.Attack, pl.CollisionBox, pl.Health, pl.Position, pl.Rotation, pl.DimensionId, pl.TypeId, pl.UniqueId, pl.Uuid, pl.getName());
+                    }
+                    else if (fe.selected == "1"){
+                        // 物品栏测试
+                        Console.WriteLine("实体装备栏：{0}，实体主副手栏：{1}，实体背包栏：{2}，实体热键栏：{3}",
+                            pl.ArmorContainer, pl.HandContainer, pl.InventoryContainer, pl.HotbarContainer);
+                    }
+                    else if (fe.selected == "2"){
+                        // 组件设置测试
+                        JavaScriptSerializer ser = new JavaScriptSerializer();
+                        var atta = ser.Deserialize<Dictionary<string, object>>(pl.Attack);
+                        atta["range_min"] = Convert.ToSingle(atta["range_min"]) + 4;
+                        atta["range_max"] = Convert.ToSingle(atta["range_max"]) + 4;
+                        pl.Attack = ser.Serialize(atta);
+                        Console.WriteLine("玩家攻击力将+4");
+						var acb = ser.Deserialize<Dictionary<string, object>>(pl.CollisionBox);
+						acb["width"] = Convert.ToSingle(acb["width"]) + 1;
+						acb["height"] = Convert.ToSingle(acb["height"]) + 1;
+						//pl.CollisionBox = ser.Serialize(acb);
+						//Console.WriteLine("玩家碰撞箱宽和高的值将+1格");
+						var ahe = ser.Deserialize<Dictionary<string, object>>(pl.Health);
+						ahe["max"] = Convert.ToSingle(ahe["max"]) + 10;
+						ahe["value"] = Convert.ToSingle(ahe["value"]) + 10;
+						pl.Health = ser.Serialize(ahe);
+						Console.WriteLine("玩家当前和最大生命值将+10点");
+						var prex = "[前缀]";
+						var pname = pl.getName();
+						bool alwaysshow = false;
+						if (pname.IndexOf(prex) == 0) {
+							pname = pname.Substring(prex.Length);
+							alwaysshow = true;
+						}
+						else {
+							pname = prex + pname;
+							alwaysshow = false;
+						}
+						pl.setName(pname, alwaysshow);
+						Console.WriteLine("玩家名字将添加/删除前缀，去掉/恢复常显");
+						var apos = ser.Deserialize<Dictionary<string, object>>(pl.Position);
+						apos["x"] = Convert.ToSingle(apos["x"]) + 16;
+						apos["y"] = Convert.ToSingle(apos["y"]) + 10;
+						apos["z"] = Convert.ToSingle(apos["z"]) + 16;
+						//pl.Position = ser.Serialize(apos);
+						//Console.WriteLine("玩家将位移至当前位置的(+16,+10,+16)上。");
+						var arot = ser.Deserialize<Dictionary<string, object>>(pl.Rotation);
+						arot["x"] = Convert.ToSingle(arot["x"]) + 16;
+						arot["y"] = Convert.ToSingle(arot["y"]) + 16;
+						pl.Rotation = ser.Serialize(arot);
+						Console.WriteLine("玩家俯角+16，转角+16");
+					}
+					else if (fe.selected == "3")
+                    {
+						var el = CsActor.getsFromAABB(api, fe.dimensionid, fe.XYZ.x - 16, fe.XYZ.y - 16, fe.XYZ.z - 16,
+							fe.XYZ.x + 16, fe.XYZ.y + 16, fe.XYZ.z + 16);
+						if (el != null && el.Count > 0)
+                        {
+							Console.WriteLine("查询并移除玩家附近16格内所有实体：");
+							foreach (IntPtr eptr in el)
+                            {
+								var cse = new CsActor(api, eptr);
+								Console.WriteLine("TypeId={0},UniqueId={1},name={2}", cse.TypeId, cse.UniqueId, cse.getName());
+								cse.remove();
+                            }
+                        }
+                    }
+				}
+                else{
+                    Console.WriteLine("玩家 {0} 取消了表单 id={1}", fe.playername, fe.formid);
                 }
-				return false;
-			});
+                return false;
+            });
 			// 使用物品监听
 			api.addAfterActListener(EventKey.onUseItem, x => {
 				Console.WriteLine("[CS] type = {0}, mode = {1}, result= {2}", x.type, x.mode, x.result);
@@ -258,11 +341,11 @@ namespace CSRDemo
 						}
 						if (uuid != null)
 						{
-							var id = api.sendSimpleForm((string)uuid,
-											   "致命选项",
+							tformid = api.sendSimpleForm((string)uuid,
+											   "测试选项",
 											   "test choose:",
-											   "[\"生存\",\"死亡\",\"求助\"]");
-							Console.WriteLine("创建需自行保管的表单，id={0}", id);
+											   "[\"基本组件\",\"物品栏组件\",\"组件设置\", \"范围检测并清理\"]");
+							Console.WriteLine("创建需自行保管的表单，id={0}", tformid);
 							//api.transferserver((string)uuid, "www.xiafox.com", 19132);
 						}
 					}
