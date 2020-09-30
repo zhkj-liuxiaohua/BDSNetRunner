@@ -28,7 +28,8 @@ enum class EventType : UINT16 {
 	onPlayerLeft = 23,
 	onMove = 24,
 	onAttack = 25,
-	onLevelExplode = 26
+	onLevelExplode = 26,
+	onEquippedArmor = 27
 };
 
 // 监听模式
@@ -62,6 +63,7 @@ struct ACTEVENT {
 	const std::string ONINPUTTEXT = u8"onInputText";
 	const std::string ONINPUTCOMMAND = u8"onInputCommand";
 	const std::string ONLEVELEXPLODE = u8"onLevelExplode";
+	const std::string ONEQUIPPEDARMOR = u8"onEquippedArmor";
 #if (COMMERCIAL)
 	const std::string ONMOBHURT = u8"onMobHurt";
 	const std::string ONBLOCKCMD = u8"onBlockCmd";
@@ -543,6 +545,25 @@ public:
 		if (dimension) {
 			delete dimension;
 			dimension = NULL;
+		}
+	}
+};
+
+struct EquippedArmorEvent : PlayerEvent {
+	char* itemname;		// 物品名字
+	int itemcount;		// 物品数量
+	int slot;			// 操作格子位置
+	short itemaux;		// 物品特殊值
+	short itemid;		// 物品ID
+	void* pplayer;		// 附加组件，玩家指针
+public:
+	EquippedArmorEvent() {
+		memset(this, 0, sizeof(EquippedArmorEvent));
+	}
+	void releaseAll() {
+		if (itemname) {
+			delete itemname;
+			itemname = NULL;
 		}
 	}
 };

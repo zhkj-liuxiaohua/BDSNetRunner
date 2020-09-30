@@ -2164,6 +2164,7 @@ static void _CS_PLAYERRESPAWN(Player* pPlayer) {
 		original(pPlayer);
 		e.result = ret;
 		e.mode = ActMode::AFTER;
+		addPlayerInfo(&de, pPlayer);
 		runCscode(ActEvent.ONRESPAWN, ActMode::AFTER, e);
 	}
 	de.releaseAll();
@@ -2490,6 +2491,45 @@ static VA ONLEVELEXPLODE_SYMS[] = { 2, MSSYM_B1QA7explodeB1AA5LevelB2AAE20QEAAXA
 	MSSYM_B1QE11trySetSpawnB1AE18RespawnAnchorBlockB2AAA2CAB1UE11NAEAVPlayerB2AAE12AEBVBlockPosB2AAE15AEAVBlockSourceB2AAA9AEAVLevelB3AAAA1Z,
 	(VA)_CS_SETRESPWNEXPLOREDE };
 
+// 玩家切换护甲（不含主副手）
+static VA _CS_ONSETARMOR(Player* p, int slot, ItemStack *i) {
+	auto original = (VA(*)(Player *, int, ItemStack *)) * getOriginalData(_CS_ONSETARMOR);
+	if (checkIsPlayer(p)) {
+		ItemStack* pItemStack = i;
+		auto nid = pItemStack->getId();
+		auto naux = pItemStack->getAuxValue();
+		auto nsize = pItemStack->getStackSize();
+		auto nname = std::string(pItemStack->getName());
+		auto pPlayer = p;
+		Events e;
+		e.type = EventType::onEquippedArmor;
+		e.mode = ActMode::BEFORE;
+		e.result = 0;
+		EquippedArmorEvent de;
+		addPlayerInfo(&de, pPlayer);
+		de.pplayer = pPlayer;
+		de.itemid = nid;
+		de.itemcount = nsize;
+		autoByteCpy(&de.itemname, nname.c_str());
+		de.itemaux = naux;
+		de.slot = slot;
+		e.data = &de;
+		bool ret = runCscode(ActEvent.ONEQUIPPEDARMOR, ActMode::BEFORE, e);
+		if (ret) {
+			VA ret = original(p, slot, i);
+			e.result = true;
+			e.mode = ActMode::AFTER;
+			runCscode(ActEvent.ONEQUIPPEDARMOR, ActMode::AFTER, e);
+			return ret;
+		}
+		de.releaseAll();
+		return 0;
+	}
+	return original(p, slot, i);
+}
+static VA ONSETARMOR_SYMS[] = { 1, MSSYM_B1QA8setArmorB1AE12ServerPlayerB2AAE16UEAAXW4ArmorSlotB2AAE13AEBVItemStackB3AAAA1Z,
+	(VA)_CS_ONSETARMOR };
+
 // 初始化各类hook的事件绑定，基于构造函数
 static struct EventSymsInit{
 public:
@@ -2516,6 +2556,7 @@ public:
 		sListens[ActEvent.ONINPUTTEXT] = ONINPUTTEXT_SYMS;
 		sListens[ActEvent.ONINPUTCOMMAND] = ONINPUTCOMMAND_SYMS;
 		sListens[ActEvent.ONLEVELEXPLODE] = ONLEVELEXPLODE_SYMS;
+		sListens[ActEvent.ONEQUIPPEDARMOR] = ONSETARMOR_SYMS;
 #if (COMMERCIAL)
 		isListened[ActEvent.ONMOBHURT] = true;
 		isListened[ActEvent.ONBLOCKCMD] = true;

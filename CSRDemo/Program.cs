@@ -279,6 +279,19 @@ namespace CSRDemo
 				}
 				return false;
 			});
+			// 玩家切换装备监听
+			api.addAfterActListener(EventKey.onEquippedArmor, x =>
+			{
+				Console.WriteLine("[CS] type = {0}, mode = {1}, result= {2}", x.type, x.mode, x.result);
+				var e = BaseEvent.getFrom(x) as EquippedArmorEvent;
+				if (e != null)
+				{
+					Console.WriteLine("玩家 {0} 已于 {1} 的 ({2:F2},{3:F2},{4:F2}) 处切换第 {5} 格的装备为 {6} 。",
+						e.playername, e.dimension, e.XYZ.x, e.XYZ.y, e.XYZ.z,
+						e.slot, e.itemname);
+				}
+				return true;
+			});
 			/*
 			// 玩家移动监听
 			api.addAfterActListener(EventKey.onMove, x => {
