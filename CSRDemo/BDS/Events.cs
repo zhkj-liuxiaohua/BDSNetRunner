@@ -126,6 +126,10 @@ namespace CSR
 		/// onEquippedArmor - 玩家切换护甲监听
 		/// </summary>
 		public const string onEquippedArmor = "onEquippedArmor";
+		/// <summary>
+		/// onLevelUp - 玩家升级
+		/// </summary>
+		public const string onLevelUp = "onLevelUp";
 	}
 
 	public enum EventType {
@@ -156,7 +160,8 @@ namespace CSR
 		onMove = 24,
 		onAttack = 25,
 		onLevelExplode = 26,
-		onEquippedArmor = 27
+		onEquippedArmor = 27,
+		onLevelUp = 28
 	}
 
 	public enum ActMode {
@@ -348,6 +353,8 @@ namespace CSR
 						return LevelExplodeEvent.getFrom(e);
 					case EventType.onEquippedArmor:
 						return EquippedArmorEvent.getFrom(e);
+					case EventType.onLevelUp:
+						return LevelUpEvent.getFrom(e);
 					default:
 						// do nothing
 						break;
@@ -1371,6 +1378,30 @@ namespace CSR
 			qae.mitemid = Marshal.ReadInt16(s, 58);
 			qae.mplayer = Marshal.ReadIntPtr(s, 64);
 			return qae;
+		}
+	}
+
+	/// <summary>
+	/// 玩家升级监听<br/>
+	/// 拦截可否：是
+	/// </summary>
+	public class LevelUpEvent : PlayerEvent
+	{
+		protected int mlv;
+		/// <summary>
+		/// 等级
+		/// </summary>
+		public int lv { get { return mlv; } }
+		public static new LevelUpEvent getFrom(Events e)
+		{
+			var soe = createHead(e, EventType.onLevelUp, typeof(LevelUpEvent)) as LevelUpEvent;
+			if (soe == null)
+				return null;
+			IntPtr s = e.data;  // 此处为转换过程
+			soe.loadData(s);
+			soe.mplayer = Marshal.ReadIntPtr(s, 40);
+			soe.mlv = Marshal.ReadInt32(s, 48);
+			return soe;
 		}
 	}
 }

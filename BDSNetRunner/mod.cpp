@@ -1901,7 +1901,6 @@ static bool _CS_ONPLACEDBLOCK(BlockSource* _this, Block* pBlk, BlockPos* pBlkpos
 static VA ONPLACEDBLOCK_SYMS[] = { 1, MSSYM_B1QA8mayPlaceB1AE11BlockSourceB2AAA4QEAAB1UE10NAEBVBlockB2AAE12AEBVBlockPosB2AAE10EPEAVActorB3AAUA1NB1AA1Z ,
 (VA)_CS_ONPLACEDBLOCK};
 
-
 // 玩家破坏方块
 static bool _CS_ONDESTROYBLOCK(void* _this, BlockPos* pBlkpos) {
 	auto pPlayer = *reinterpret_cast<Player**>(reinterpret_cast<VA>(_this) + 8);
@@ -2530,6 +2529,29 @@ static VA _CS_ONSETARMOR(Player* p, int slot, ItemStack *i) {
 static VA ONSETARMOR_SYMS[] = { 1, MSSYM_B1QA8setArmorB1AE12ServerPlayerB2AAE16UEAAXW4ArmorSlotB2AAE13AEBVItemStackB3AAAA1Z,
 	(VA)_CS_ONSETARMOR };
 
+//玩家升级
+static void _CS_ONLEVELUP(Player* pl, int a1) {
+	auto original = (void(*)(Player*, int)) * getOriginalData(_CS_ONLEVELUP);
+	Events e;
+	e.type = EventType::onLevelUp;
+	e.mode = ActMode::BEFORE;
+	e.result = 0;
+	LevelUpEvent le;
+	addPlayerInfo(&le, pl);
+	le.pplayer = pl;
+	le.lv = a1;
+	e.data = &le;
+	bool ret = runCscode(ActEvent.ONLEVELUP, ActMode::BEFORE, e);
+	if (ret) {
+		original(pl, a1);
+		e.result = ret;
+		e.mode = ActMode::AFTER;
+		runCscode(ActEvent.ONLEVELUP, ActMode::AFTER, e);
+	}
+}
+static VA ONLEVELUP_SYMS[] = { 1, MSSYM_B1QA9addLevelsB1AA6PlayerB2AAA6UEAAXHB1AA1Z,
+	(VA)_CS_ONLEVELUP };
+
 // 初始化各类hook的事件绑定，基于构造函数
 static struct EventSymsInit{
 public:
@@ -2557,6 +2579,7 @@ public:
 		sListens[ActEvent.ONINPUTCOMMAND] = ONINPUTCOMMAND_SYMS;
 		sListens[ActEvent.ONLEVELEXPLODE] = ONLEVELEXPLODE_SYMS;
 		sListens[ActEvent.ONEQUIPPEDARMOR] = ONSETARMOR_SYMS;
+		sListens[ActEvent.ONLEVELUP] = ONLEVELUP_SYMS;
 #if (COMMERCIAL)
 		isListened[ActEvent.ONMOBHURT] = true;
 		isListened[ActEvent.ONBLOCKCMD] = true;
