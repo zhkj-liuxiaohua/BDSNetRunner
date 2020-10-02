@@ -29,7 +29,8 @@ enum class EventType : UINT16 {
 	onMove = 24,
 	onAttack = 25,
 	onLevelExplode = 26,
-	onEquippedArmor = 27
+	onEquippedArmor = 27,
+	onLevelUp = 28
 };
 
 // 监听模式
@@ -63,6 +64,7 @@ struct ACTEVENT {
 	const std::string ONINPUTTEXT = u8"onInputText";
 	const std::string ONINPUTCOMMAND = u8"onInputCommand";
 	const std::string ONLEVELEXPLODE = u8"onLevelExplode";
+	const std::string ONLEVELUP = u8"onLevelUp";
 	const std::string ONEQUIPPEDARMOR = u8"onEquippedArmor";
 #if (COMMERCIAL)
 	const std::string ONMOBHURT = u8"onMobHurt";
@@ -132,7 +134,19 @@ public:
 		}
 	}
 };
-
+struct LevelUpEvent {
+	int lv;
+	char* playername;
+	char* uuid;
+	void* p;
+public:
+	LevelUpEvent() {
+		memset(this, 0, sizeof(LevelUpEvent));
+	}
+	void releaseAll() {
+		((LevelUpEvent*)this)->releaseAll();
+	}
+};
 struct FormSelectEvent : PlayerEvent {
 	char* uuid;			// 玩家uuid信息
 	char* selected;		// 表单回传的选择项信息
