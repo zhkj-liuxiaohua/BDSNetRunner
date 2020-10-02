@@ -2531,7 +2531,6 @@ static VA ONSETARMOR_SYMS[] = { 1, MSSYM_B1QA8setArmorB1AE12ServerPlayerB2AAE16U
 
 //Íæ¼ÒÉý¼¶
 static void _CS_ONLEVELUP(Player* pl, int a1) {
-	auto original = (void(*)(Player*, int)) * getOriginalData(_CS_ONLEVELUP);
 	Events e;
 	e.type = EventType::onLevelUp;
 	e.mode = ActMode::BEFORE;
@@ -2543,11 +2542,13 @@ static void _CS_ONLEVELUP(Player* pl, int a1) {
 	e.data = &le;
 	bool ret = runCscode(ActEvent.ONLEVELUP, ActMode::BEFORE, e);
 	if (ret) {
+		auto original = (void(*)(Player*, int)) * getOriginalData(_CS_ONLEVELUP);
 		original(pl, a1);
 		e.result = ret;
 		e.mode = ActMode::AFTER;
 		runCscode(ActEvent.ONLEVELUP, ActMode::AFTER, e);
 	}
+	le.releaseAll();
 }
 static VA ONLEVELUP_SYMS[] = { 1, MSSYM_B1QA9addLevelsB1AA6PlayerB2AAA6UEAAXHB1AA1Z,
 	(VA)_CS_ONLEVELUP };
