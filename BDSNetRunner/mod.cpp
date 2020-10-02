@@ -2293,14 +2293,18 @@ THook2(_CS_ONCREATEPLAYER, VA,
 	le.releaseAll();
 	return hret;
 }
-THook2(_CS_ONLEVELUP, void, MSSYM_B1QA9addLevelsB1AA6PlayerB2AAA6UEAAXHB1AA1Z, Player* pl, int a1) {
+//玩家升级
+THook2(_CS_ONLEVELUP, VA, MSSYM_B1QA9addLevelsB1AA6PlayerB2AAA6UEAAXHB1AA1Z, Player* pl, int a1) {
+	VA hret = original(pl,a1);
 	Events e;
-	e.type = EventType::onPlayerLeft;
+	e.type = EventType::onLevelUp;
 	e.mode = ActMode::BEFORE;
 	e.result = 0;
 	LevelUpEvent le;
 	le.lv = a1;
-	addPlayerInfo(&le, pl);
+	le.p = pl;
+	autoByteCpy(&le.uuid, pl->getUuid()->toString().c_str());
+	autoByteCpy(&le.playername, pl->getNameTag().c_str());
 	e.data = &le;
 	bool ret = runCscode(ActEvent.ONLEVELUP, ActMode::BEFORE, e);
 	if (ret) {
@@ -2309,7 +2313,7 @@ THook2(_CS_ONLEVELUP, void, MSSYM_B1QA9addLevelsB1AA6PlayerB2AAA6UEAAXHB1AA1Z, P
 		e.mode = ActMode::AFTER;
 		runCscode(ActEvent.ONLEVELUP, ActMode::AFTER, e);
 	}
-	le.releaseAll();
+	return hret;
 }
 // 玩家离开游戏
 THook2(_CS_ONPLAYERLEFT, void,

@@ -134,8 +134,11 @@ public:
 		}
 	}
 };
-struct LevelUpEvent :PlayerEvent {
+struct LevelUpEvent {
 	int lv;
+	char* playername;
+	char* uuid;
+	void* p;
 public:
 	LevelUpEvent() {
 		memset(this, 0, sizeof(LevelUpEvent));
