@@ -56,9 +56,14 @@ MCCSAPI UINT sendCustomForm(char*, char*);
 MCCSAPI bool releaseForm(unsigned);
 // 增加玩家一个简单物品
 MCCSAPI bool addPlayerItem(const char*, int, short, char);
+// 断开一个在线玩家的连接
+MCCSAPI bool disconnectClient(const char*, const char*);
 
 // 从此处获取额外API
 MCCSAPI void* getExtraAPI(const char*);
+
+// 从此处获取类组件的相关方法
+MCCSAPI void* mcComponentAPI(const char*);
 
 // 来自社区贡献
 

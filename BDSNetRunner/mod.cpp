@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <iostream>
 #include "BDS.hpp"
+#include "Component.h"
 #include <thread>
 #include <map>
 #include <fstream>
@@ -16,13 +17,14 @@
 #pragma comment(lib, "mscoree.lib")
 
 // 当前插件平台版本号
-static const wchar_t* VERSION = L"1.16.20.3";
+static const wchar_t* VERSION = L"1.16.40.2";
 static const wchar_t* ISFORCOMMERCIAL = L"1";
 
 static bool netregok = false;
 
 static void releaseNetFramework();
-
+void** getOriginalData(void*);
+HookErrorCode mTHook2(RVA, void*);
 
 static std::mutex mleftlock;
 
@@ -60,12 +62,12 @@ static Json::Value toJson(std::string s) {
 static std::string UTF8ToGBK(const char* strUTF8)
 {
 	int len = MultiByteToWideChar(CP_UTF8, 0, strUTF8, -1, NULL, 0);
-	wchar_t* wszGBK = new wchar_t[len + 1];
-	memset(wszGBK, 0, len * 2 + 2);
+	wchar_t* wszGBK = new wchar_t[(size_t)len + 1];
+	memset(wszGBK, 0, (size_t)len * 2 + 2);
 	MultiByteToWideChar(CP_UTF8, 0, strUTF8, -1, wszGBK, len);
 	len = WideCharToMultiByte(CP_ACP, 0, wszGBK, -1, NULL, 0, NULL, NULL);
-	char* szGBK = new char[len + 1];
-	memset(szGBK, 0, len + 1);
+	char* szGBK = new char[(size_t)len + 1];
+	memset(szGBK, 0, (size_t)len + 1);
 	WideCharToMultiByte(CP_ACP, 0, wszGBK, -1, szGBK, len, NULL, NULL);
 	std::string strTemp(szGBK);
 	if (wszGBK) delete[] wszGBK;
@@ -150,10 +152,26 @@ static bool runCscode(std::string key, ActMode mode, Events& eventData) {
 
 static ACTEVENT ActEvent;
 
+static std::unordered_map<std::string, VA*> sListens;		// 监听列表
+static std::unordered_map<std::string, bool> isListened;	// 是否已监听
+
 static bool addListener(std::string key, ActMode mode, bool(*func)(Events)) {
 	auto& funcs = (mode == ActMode::BEFORE) ? beforecallbacks :
 		aftercallbacks;
 	if (key != "" && func != NULL) {
+		if (!isListened[key]) {			// 动态挂载hook监听
+			VA* syms = sListens[key];
+			int hret = 0;
+			if (syms) {
+				for (VA i = 0, len = syms[0]; i < len; ++i) {								// 首数为sym长度
+					hret += (int)mTHook2((RVA)syms[(i * 2) + 1], (void*)syms[(i * 2) + 2]);	// 第一数为sym，第二数为func
+				}
+			}
+			if (hret) {
+				PR("[CSR] Some hooks wrong at event setting.");
+			}
+			isListened[key] = true;		// 只挂载一次
+		}
 		auto dv = funcs[key];
 		if (dv == NULL) {
 			dv = new std::vector<void*>();
@@ -323,6 +341,7 @@ std::string getOnLinePlayers() {
 			jv["playername"] = p->getNameTag();
 			jv["uuid"] = p->getUuid()->toString();
 			jv["xuid"] = p->getXuid(p_level);
+			jv["playerptr"] = (VA)p;
 			rt.append(jv);
 		}
 	}
@@ -998,6 +1017,7 @@ static void addPlayerJsonInfo(Json::Value& jv, Player* p) {
 		jv["dimension"] = toDimenStr(did);
 		jv["isstand"] = p->isStand();
 		jv["XYZ"] = toJson(p->getPos()->toJsonString());
+		jv["playerptr"] = (VA)p;
 	}
 }
 
@@ -1087,7 +1107,35 @@ bool runcmdAs(const char* uuid, const char* cmd) {
 	return false;
 }
 
-
+// 函数名：disconnectClient
+// 功能：断开一个玩家的连接
+// 参数个数：2个
+// 参数类型：字符串，字符串
+// 参数详解：uuid - 在线玩家的uuid字符串，tips - 断开提示（设空值则为默认值）
+// 返回值：是否发送成功
+bool disconnectClient(const char* uuid, const char* tips) {
+	Player* p = onlinePlayers[uuid];
+	if (playerSign[p]) {
+		std::string suuid = uuid;
+		std::string stips = "disconnectionScreen.disconnected";
+		if (tips) {
+			auto s = GBKToUTF8(tips);
+			if (s.length())
+				stips = s;
+		}
+		auto fr = [suuid, stips]() {
+			Player* p = onlinePlayers[suuid];
+			if (playerSign[p]) {
+				VA nid = p->getNetId();
+				SYMCALL(VA, MSSYM_MD5_389e602d185eac21ddcc53a5bb0046ee,
+					p_ServerNetworkHandle, nid, 0, stips, 0);
+			}
+		};
+		safeTick(fr);
+		return true;
+	}
+	return false;
+}
 
 // 判断指针是否为玩家列表中指针
 static bool checkIsPlayer(void* p) {
@@ -1098,7 +1146,7 @@ static std::map<unsigned, bool> fids;
 
 // 获取一个未被使用的基于时间秒数的id
 static unsigned getFormId() {
-	unsigned id = time(0) + rand();
+	unsigned id = (unsigned)(time(0) + rand());
 	do {
 		++id;
 	} while (id == 0 || fids[id]);
@@ -1279,9 +1327,384 @@ static void getDamageInfo(void* p, void* dsrc, MobDieEvent* ue) {			// IDA Mob::
 	ue->dmcase = *((int*)dsrc + 2);
 }
 
+//////////////////////////////// 组件 API 区域 ////////////////////////////////
+
+#pragma region 类属性相关方法及实现
+
+std::string Actor::sgetArmorContainer(Actor* e) {
+	VA parmor = ((Mob*)e)->getArmor();
+	std::vector<ItemStack*> armors;
+	(*(void(**)(VA, VA))(**(VA**)parmor + 152))(*(VA*)parmor, (VA)&armors);		// IDA Mob::addAdditionalSaveData
+	Json::Value jv;
+	if (armors.size() > 0) {
+		for (size_t i = 0, l = armors.size(); i < l; i++) {
+			auto pa = armors[i];
+			Json::Value ji;
+			ji["Slot"] = i;
+			ji["item"] = pa->getName();
+			ji["id"] = pa->getId();
+			ji["count"] = pa->mCount;
+			jv.append(ji);
+		}
+		return jv.toStyledString();
+	}
+	return "";
+}
+
+std::string Actor::sgetAttack(Actor* e) {
+	if (*(VA*)(((VA*)e)[28] + 712)) {	// IDA ScriptAttackComponent::retrieveComponentFrom
+		VA atattr = (*(VA(__fastcall**)(Actor*, VA*))(*(VA*)e + 1536))(
+			e,
+			SYM_POINT(VA, MSSYM_B1QA6ATTACKB1UA6DAMAGEB1AE16SharedAttributesB2AAE112VAttributeB2AAA1B));
+		if (*(VA*)(atattr + 16)) {
+			float dmin = *(float*)(atattr + 124);
+			float dmax = *(float*)(atattr + 128);
+			Json::Value jv;
+			jv["range_min"] = dmin;
+			jv["range_max"] = dmax;
+			return jv.toStyledString();
+		}
+	}
+	return "";
+}
+bool Actor::ssetAttack(Actor* e, const char* damage) {
+	std::string dmg = damage;
+	Json::Value jv = toJson(damage);
+	if (!jv.isNull()) {
+		float dmin = jv["range_min"].asFloat();
+		float dmax = jv["range_max"].asFloat();
+		VA mptr = ((VA*)e)[135];					// IDA ScriptAttackComponent::applyComponentTo
+		if (mptr) {
+			VA v20 = SYMCALL(VA, MSSYM_B1QE17registerAttributeB1AE16BaseAttributeMapB2AAE25QEAAAEAVAttributeInstanceB2AAE13AEBVAttributeB3AAAA1Z,
+				mptr, SYM_POINT(VA, MSSYM_B1QA6ATTACKB1UA6DAMAGEB1AE16SharedAttributesB2AAE112VAttributeB2AAA1B));
+			SYMCALL(VA, MSSYM_B1QA8setRangeB1AE17AttributeInstanceB2AAA8QEAAXMMMB1AA1Z, v20, dmin, dmin, dmax);
+			VA v22 = SYMCALL(VA, MSSYM_B1QE17registerAttributeB1AE16BaseAttributeMapB2AAE25QEAAAEAVAttributeInstanceB2AAE13AEBVAttributeB3AAAA1Z,
+				mptr, SYM_POINT(VA, MSSYM_B1QA6ATTACKB1UA6DAMAGEB1AE16SharedAttributesB2AAE112VAttributeB2AAA1B));
+			SYMCALL(VA, MSSYM_B1QE19resetToDefaultValueB1AE17AttributeInstanceB2AAA7QEAAXXZ, v22);
+			return true;
+		}
+	}
+	return false;
+}
+
+std::string Actor::sgetCollisionBox(Actor* e) {
+	float w = *((float*)e + 285);		// IDA Actor::_refreshAABB
+	float h = *((float*)e + 286);
+	Json::Value jv;
+	jv["width"] = w;
+	jv["height"] = h;
+	return jv.toStyledString();
+}
+bool Actor::ssetCollisionBox(Actor* e, const char* box) {
+	std::string sbox = box;
+	Json::Value jv = toJson(sbox);
+	if (!jv.isNull()) {
+		float w = jv["width"].asFloat();
+		float h = jv["height"].asFloat();
+		if (w != 0 && h != 0) {			// IDA SynchedActorData::set<float>
+			*((float*)e + 285) = w;
+			*((float*)e + 286) = h;
+			SYMCALL(VA, MSSYM_B1QA7setSizeB1AA5ActorB2AAA7UEAAXMMB1AA1Z, e, w, h);
+			SYMCALL(VA, MSSYM_B3QQDA3setB1AA1MB1AE16SynchedActorDataB2AAE10QEAAXGAEBMB1AA1Z, (VA)e + 320, ActorDataIDs::WIDTH, &w);
+			SYMCALL(VA, MSSYM_B3QQDA3setB1AA1MB1AE16SynchedActorDataB2AAE10QEAAXGAEBMB1AA1Z, (VA)e + 320, ActorDataIDs::HEIGHT, &h);
+			return true;
+		}
+	}
+	return false;
+}
+
+std::string Actor::sgetHandContainer(Actor* e) {
+	VA phand = ((Mob*)e)->getHands();
+	if (phand) {
+		Json::Value jv;
+		std::vector<ItemStack*> hands;		// IDA ScriptHandContainerComponent::retrieveComponentFrom
+		(ItemStack*)(*(VA(__fastcall**)(VA, VA))(**(VA**)phand + 152))(
+			*(VA*)phand, (VA)&hands);
+		if (Actor::sgetEntityTypeId(e) == 319) {
+			ItemStack* v6 = (*(ItemStack *(__fastcall**)(Actor*))(*(VA*)e + 1200))(e);
+			hands[0] = v6;
+		}
+		for (VA i = 0, l = hands.size(); i < l; i++) {
+			ItemStack* h = hands[i];
+			Json::Value ji;
+			ji["Slot"] = i;
+			ji["item"] = h->getName();
+			ji["id"] = h->getId();
+			ji["count"] = h->mCount;
+			jv.append(ji);
+		}
+		return jv.toStyledString();
+	}
+	return "";
+}
+
+std::string Actor::sgetHealth(Actor* e) {
+	VA bpattrmap = ((VA*)e)[135];			// IDA ScriptHealthComponent::retrieveComponentFrom
+	if (bpattrmap) {
+		VA hattr = SYMCALL(VA, MSSYM_B1QE18getMutableInstanceB1AE16BaseAttributeMapB2AAE25QEAAPEAVAttributeInstanceB2AAA1IB1AA1Z,
+			bpattrmap, SYM_OBJECT(UINT32, MSSYM_B1QA6HEALTHB1AE16SharedAttributesB2AAE112VAttributeB2AAA1B + 4));
+		if (hattr) {
+			float value = *((float*)hattr + 33);
+			float max = *((float*)hattr + 32);
+			Json::Value jv;
+			jv["value"] = value;
+			jv["max"] = max;
+			return jv.toStyledString();
+		}
+	}
+	return "";
+}
+bool Actor::ssetHealth(Actor* e, const char* hel) {
+	std::string shel = hel;
+	Json::Value jv = toJson(shel);
+	if (!jv.isNull()) {
+		float value = jv["value"].asFloat();
+		float max = jv["max"].asFloat();
+		VA bpattrmap = ((VA*)e)[135];
+		if (bpattrmap) {
+			VA hattr = SYMCALL(VA, MSSYM_B1QE18getMutableInstanceB1AE16BaseAttributeMapB2AAE25QEAAPEAVAttributeInstanceB2AAA1IB1AA1Z,
+				bpattrmap, SYM_OBJECT(UINT32, MSSYM_B1QA6HEALTHB1AE16SharedAttributesB2AAE112VAttributeB2AAA1B + 4));
+			if (hattr) {
+				*((float*)hattr + 33) = value;
+				*((float*)hattr + 32) = max;
+				SYMCALL(VA, MSSYM_B2QUA8setDirtyB1AE17AttributeInstanceB2AAA7AEAAXXZ, hattr);
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+std::string Actor::sgetInventoryContainer(Actor* e) {
+	std::vector<ItemStack*> bag;		// IDA ScriptInventoryContainerComponent::retrieveComponentFrom
+	if (Actor::sgetEntityTypeId(e) == 319) {	// 玩家
+		VA cont = ((Player*)e)->getSupplies();
+		(*(void(__fastcall**)(VA, void*))(*(VA*)cont + 152))(
+			cont,
+			&bag);
+	}
+	else {
+		VA v8 = SYMCALL(VA, MSSYM_B3QQDE15tryGetComponentB1AE19VContainerComponentB3AAAA5ActorB2AAE26QEAAPEAVContainerComponentB2AAA2XZ, e);
+		if (v8) {
+			(*(void(__fastcall**)(VA, void*))(**(VA**)(v8 + 8) + 152))(*(VA*)(v8 + 8), &bag);
+		}
+	}
+	size_t l = bag.size();
+	if (l > 0) {
+		Json::Value jv;
+		for (size_t i = 0; i < l; i++) {
+			ItemStack* h = bag[i];
+			Json::Value ji;
+			ji["Slot"] = i;
+			ji["item"] = h->getName();
+			ji["id"] = h->getId();
+			ji["count"] = h->mCount;
+			jv.append(ji);
+		}
+		return jv.toStyledString();
+	}
+	return "";
+}
+
+std::string Actor::sgetName(Actor* e) {
+	return e->getNameTag();
+}
+bool Actor::ssetName(Actor* e, const char* n, bool alwaysShow) {
+	std::string nname = GBKToUTF8(n);
+	if (Actor::sgetEntityTypeId(e) == 319) {
+		((Player*)e)->reName(nname);
+	} else
+		SYMCALL(VA, MSSYM_MD5_2f9772d3549cbbfca05bc883e3dd5c30, e, nname);
+	bool v = alwaysShow;					// IDA SynchedActorData::set<signed char>
+	SYMCALL(VA, MSSYM_B3QQDA3setB1AA1CB1AE16SynchedActorDataB2AAE10QEAAXGAEBCB1AA1Z, (VA)e + 320, ActorDataIDs::NAMETAG_ALWAYS_SHOW, &v);
+	return true;
+}
+
+std::string Actor::sgetPosition(Actor* e) {
+	auto pos = e->getPos();
+	Json::Value jv;
+	if (pos) {
+		jv["x"] = pos->x;
+		jv["y"] = pos->y;
+		jv["z"] = pos->z;
+		return jv.toStyledString();
+	}
+	return "";
+}
+
+bool Actor::ssetPosition(Actor* e, const char* jpos) {
+	Json::Value jv = toJson(jpos);
+	if (!jv.isNull()) {
+		Vec3 v;
+		v.x = jv["x"].asFloat();
+		v.y = jv["y"].asFloat();
+		v.z = jv["z"].asFloat();
+		int v9 = (int)ActorType::Undefined_2;		// IDA ScriptPositionComponent::applyComponentTo
+		(*(void(__fastcall**)(Actor*, Vec3*, VA, VA, signed int, VA*))(*(VA*)e + 264))(
+			e, &v, 1, 0, v9, SYM_POINT(VA, MSSYM_B1QA7INVALIDB1UA2IDB1AE13ActorUniqueIDB2AAA32U1B1AA1B));
+		if (Actor::sgetEntityTypeId(e) == 319) {
+			v9 = (int)ActorType::Player_0;
+			SYMCALL(VA, MSSYM_B1QE10teleportToB1AA6PlayerB2AAE13UEAAXAEBVVec3B3AAUE20NHHAEBUActorUniqueIDB3AAAA1Z, e, &v, 1, 0,
+				v9, e->getUniqueID());
+		}
+		return true;
+	}
+	return false;
+}
+
+std::string Actor::sgetRotation(Actor* e) {
+	Json::Value jv;
+	float x = ((float*)e)[64];					// IDA Actor::setRot
+	float y = ((float*)e)[65];
+	jv["x"] = x;
+	jv["y"] = y;
+	return jv.toStyledString();
+}
+
+bool Actor::ssetRotation(Actor* e, const char* jr) {
+	Json::Value jv = toJson(jr);
+	if (!jv.isNull()) {
+		float x = jv["x"].asFloat();
+		float y = jv["y"].asFloat();
+		Vec2 v2;
+		v2.x = x;
+		v2.y = y;
+		SYMCALL(VA, MSSYM_B1QA6setRotB1AA5ActorB2AAE13UEAAXAEBVVec2B3AAAA1Z, e, &v2);
+		if (Actor::sgetEntityTypeId(e) == 319) {
+			Vec3 c3;
+			memcpy(&c3, e->getPos(), sizeof(Vec3));
+			float h = *((float*)e + 286);				// IDA Actor::_refreshAABB
+			c3.y -= (float)(1.7999999523162842 * 0.9);
+			auto v9 = (int)ActorType::Player_0;
+			SYMCALL(VA, MSSYM_B1QE10teleportToB1AA6PlayerB2AAE13UEAAXAEBVVec3B3AAUE20NHHAEBUActorUniqueIDB3AAAA1Z, e, &c3, 1, 0,
+				v9, e->getUniqueID());
+		}
+		return true;
+	}
+	return false;
+}
+
+int Actor::sgetDimensionId(Actor* e) {
+	return e->getDimensionId();
+}
+
+int Actor::sgetEntityTypeId(Actor* e) {
+	return (*(int(__fastcall**)(Actor*))(*(VA*)e + 1272))(e);	// IDA ScriptPositionComponent::applyComponentTo
+}
+
+VA Actor::sgetUniqueID(Actor* e) {
+	return *e->getUniqueID();
+}
+
+bool Actor::sremove(Actor* e) {
+	(*(void(**)(Actor*))(*(VA*)e + 88))(e);			// IDA Actor::remove , check vtable
+	return *((char*)e + 905) == 1;
+}
+
+Actor* Actor::sgetfromUniqueID(VA id) {
+	if (p_level)
+		return SYMCALL(Actor*, MSSYM_B1QE11fetchEntityB1AA5LevelB2AAE13QEBAPEAVActorB2AAE14UActorUniqueIDB3AAUA1NB1AA1Z, p_level, id, 0);
+	return NULL;
+}
+
+std::vector<VA*>* Actor::sgetEntities(int did, float x1, float y1, float z1, float x2, float y2, float z2) {
+	if (p_level) {
+		if (did > -1 && did < 3) {
+			AABB rt;
+			rt.set(x1, y1, z1, x2, y2, z2);
+			BlockSource* bs = (BlockSource*)((Level*)p_level)->getDimension(did)->getBlockSource();
+			return bs->getEntities((VA*)&rt);
+		}
+	}
+	return 0;
+}
+
+// Player相关
+
+std::string Player::sgetHotbarContainer(Player* p) {
+	VA cont = p->getSupplies();
+	if (cont) {
+		std::vector<ItemStack*> its;		// IDA ScriptHotbarContainerComponent::retrieveComponentFrom
+		(*(void(__fastcall**)(VA, void*))(*(VA*)cont + 152))(
+			cont,
+			&its);
+		if (its.size() >= 9) {
+			Json::Value jv;
+			for (int i = 0; i < 9; i++) {
+				ItemStack* h = its[i];
+				Json::Value ji;
+				ji["Slot"] = i;
+				ji["item"] = h->getName();
+				ji["id"] = h->getId();
+				ji["count"] = h->mCount;
+				jv.append(ji);
+			}
+			return jv.toStyledString();
+		}
+	}
+	return "";
+}
+
+std::string Player::sgetUuid(Player* p) {
+	return p->getUuid()->toString();
+}
+
+// 类属性相关方法
+static struct McMethods {
+	std::unordered_map<std::string, void*> mcMethods;
+public:
+	// 初始化，装入所有类成员属性
+	McMethods() {
+		MCMETHOD m;
+		mcMethods[m.ENTITY_GET_ARMOR_CONTAINER] = &Actor::sgetArmorContainer;
+		mcMethods[m.ENTITY_GET_ATTACK] = &Actor::sgetAttack;
+		mcMethods[m.ENTITY_SET_ATTACK] = &Actor::ssetAttack;
+		mcMethods[m.ENTITY_GET_COLLISION_BOX] = &Actor::sgetCollisionBox;
+		mcMethods[m.ENTITY_SET_COLLISION_BOX] = &Actor::ssetCollisionBox;
+		mcMethods[m.ENTITY_GET_HAND_CONTAINER] = &Actor::sgetHandContainer;
+		mcMethods[m.ENTITY_GET_HEALTH] = &Actor::sgetHealth;
+		mcMethods[m.ENTITY_SET_HEALTH] = &Actor::ssetHealth;
+		mcMethods[m.ENTITY_GET_INVENTORY_CONTAINER] = &Actor::sgetInventoryContainer;
+		mcMethods[m.ENTITY_GET_NAME] = &Actor::sgetName;
+		mcMethods[m.ENTITY_SET_NAME] = &Actor::ssetName;
+		mcMethods[m.ENTITY_GET_POSITION] = &Actor::sgetPosition;
+		mcMethods[m.ENTITY_SET_POSITION] = &Actor::ssetPosition;
+		mcMethods[m.ENTITY_GET_ROTATION] = &Actor::sgetRotation;
+		mcMethods[m.ENTITY_SET_ROTATION] = &Actor::ssetRotation;
+		mcMethods[m.ENTITY_GET_DIMENSIONID] = &Actor::sgetDimensionId;
+		mcMethods[m.ENTITY_GET_TYPEID] = &Actor::sgetEntityTypeId;
+		mcMethods[m.ENTITY_GET_UNIQUEID] = &Actor::sgetUniqueID;
+		mcMethods[m.ENTITY_REMOVE] = &Actor::sremove;
+		mcMethods[m.LEVEL_GETFROM_UNIQUEID] = &Actor::sgetfromUniqueID;
+		mcMethods[m.LEVEL_GETSFROM_AABB] = &Actor::sgetEntities;
+		mcMethods[m.PLAYER_GET_HOTBAR_CONTAINER] = &Player::sgetHotbarContainer;
+		mcMethods[m.PLAYER_GET_UUID] = &Player::sgetUuid;
+	}
+	void* getMcMethod(std::string methodname) {
+		return mcMethods[methodname];
+	}
+} _McMethods;
+
+#pragma endregion
+
+void* mcComponentAPI(const char* method) {
+	return _McMethods.getMcMethod(method);
+}
+
 //////////////////////////////// 静态 HOOK 区域 ////////////////////////////////
 
+#if 0 // 测试用途
+
+int s = 5;
+
+// 强制报错
+static void herror() {
+	PR(1 / (s - 5));
+}
+
 bool hooked = false;
+
+#endif
 
 // 此处开始接收异步数据			// IDA main
 THook2(_CS_MAIN, VA, MSSYM_A4main,
@@ -1329,9 +1752,7 @@ THook2(_CS_ONLISTCMDREG, VA, MSSYM_B1QA5setupB1AE11ListCommandB2AAE22SAXAEAVComm
 }
 
 // 服务器后台输入指令
-THook2(_CS_ONSERVERCMD, bool,
-	MSSYM_MD5_b5c9e566146b3136e6fb37f0c080d91e,
-	VA _this, std::string* cmd) {
+static bool _CS_ONSERVERCMD(VA _this, std::string* cmd) {
 	Events e;
 	e.type = EventType::onServerCmd;
 	e.mode = ActMode::BEFORE;
@@ -1341,6 +1762,7 @@ THook2(_CS_ONSERVERCMD, bool,
 	e.data = &se;
 	bool ret = runCscode(ActEvent.ONSERVERCMD, ActMode::BEFORE, e);
 	if (ret) {
+		auto original = (bool(*)(VA, std::string*)) * getOriginalData(_CS_ONSERVERCMD);
 		ret = original(_this, cmd);
 		e.result = ret;
 		e.mode = ActMode::AFTER;
@@ -1349,11 +1771,12 @@ THook2(_CS_ONSERVERCMD, bool,
 	se.releaseAll();
 	return ret;
 }
+static VA ONSERVERCMD_SYMS[] = {1, MSSYM_MD5_b5c9e566146b3136e6fb37f0c080d91e, (VA)_CS_ONSERVERCMD };
+
 
 // 服务器后台指令输出
-THook2(_CS_ONSERVERCMDOUTPUT, VA,
-	MSSYM_MD5_b5f2f0a753fc527db19ac8199ae8f740,
-	VA handle, char* str, VA size) {
+static VA _CS_ONSERVERCMDOUTPUT(VA handle, char* str, VA size) {
+	auto original = (VA(*)(VA, char*, VA)) * getOriginalData(_CS_ONSERVERCMDOUTPUT);
 	if (handle == STD_COUT_HANDLE) {
 		Events e;
 		e.type = EventType::onServerCmdOutput;
@@ -1376,11 +1799,12 @@ THook2(_CS_ONSERVERCMDOUTPUT, VA,
 	}
 	return original(handle, str, size);
 }
+static VA ONSERVERCMDOUTPUT_SYMS[] = {1, MSSYM_MD5_b5f2f0a753fc527db19ac8199ae8f740, (VA)_CS_ONSERVERCMDOUTPUT};
+
 
 // 玩家选择表单
-THook2(_CS_ONFORMSELECT, void,
-	MSSYM_MD5_8b7f7560f9f8353e6e9b16449ca999d2,
-	VA _this, VA id, VA handle, ModalFormResponsePacket** fp) {
+static void _CS_ONFORMSELECT(VA _this, VA id, VA handle, ModalFormResponsePacket** fp) {
+	auto original = (void(*)(VA, VA, VA, ModalFormResponsePacket**)) * getOriginalData(_CS_ONFORMSELECT);
 	ModalFormResponsePacket* fmp = *fp;
 	Player* p = SYMCALL(Player*, MSSYM_B2QUE15getServerPlayerB1AE20ServerNetworkHandlerB2AAE20AEAAPEAVServerPlayerB2AAE21AEBVNetworkIdentifierB2AAA1EB1AA1Z,
 		handle, id, *(char*)((VA)fmp + 16));
@@ -1393,6 +1817,7 @@ THook2(_CS_ONFORMSELECT, void,
 			e.result = 0;
 			FormSelectEvent fse;
 			addPlayerInfo(&fse, p);
+			fse.pplayer = p;
 			autoByteCpy(&fse.uuid, p->getUuid()->toString().c_str());
 			autoByteCpy(&fse.selected, fmp->getSelectStr().c_str());			// 特别鸣谢：sysca11
 			fse.formid = fid;
@@ -1410,11 +1835,10 @@ THook2(_CS_ONFORMSELECT, void,
 	}
 	original(_this, id, handle, fp);
 }
+static VA ONFORMSELECT_SYMS[] = {1, MSSYM_MD5_8b7f7560f9f8353e6e9b16449ca999d2, (VA)_CS_ONFORMSELECT};
 
 // 玩家操作物品
-THook2(_CS_ONUSEITEM, bool,
-	MSSYM_B1QA9useItemOnB1AA8GameModeB2AAA4UEAAB1UE14NAEAVItemStackB2AAE12AEBVBlockPosB2AAA9EAEBVVec3B2AAA9PEBVBlockB3AAAA1Z,
-	void* _this, ItemStack* item, BlockPos* pBlkpos, unsigned __int8 a4, void* v5, Block* pBlk) {
+static bool _CS_ONUSEITEM(void* _this, ItemStack* item, BlockPos* pBlkpos, unsigned __int8 a4, void* v5, Block* pBlk) {
 	auto pPlayer = *reinterpret_cast<Player**>(reinterpret_cast<VA>(_this) + 8);
 	Events e;
 	e.type = EventType::onUseItem;
@@ -1422,6 +1846,7 @@ THook2(_CS_ONUSEITEM, bool,
 	e.result = 0;
 	UseItemEvent ue;
 	addPlayerInfo(&ue, pPlayer);
+	ue.pplayer = pPlayer;
 	memcpy(&ue.position, pBlkpos->getPosition(), sizeof(BPos3));
 	autoByteCpy(&ue.itemname, item->getName().c_str());
 	ue.itemid = item->getId();
@@ -1433,6 +1858,7 @@ THook2(_CS_ONUSEITEM, bool,
 	e.data = &ue;
 	bool ret = runCscode(ActEvent.ONUSEITEM, ActMode::BEFORE, e);
 	if (ret) {
+		auto original = (bool(*)(void*, ItemStack*, BlockPos*, unsigned __int8, void*, Block*)) * getOriginalData(_CS_ONUSEITEM);
 		ret = original(_this, item, pBlkpos, a4, v5, pBlk);
 		e.result = ret;
 		e.mode = ActMode::AFTER;
@@ -1441,11 +1867,12 @@ THook2(_CS_ONUSEITEM, bool,
 	ue.releaseAll();
 	return ret;
 }
+static VA ONUSEITEM_SYMS[] = {1, MSSYM_B1QA9useItemOnB1AA8GameModeB2AAA4UEAAB1UE14NAEAVItemStackB2AAE12AEBVBlockPosB2AAA9EAEBVVec3B2AAA9PEBVBlockB3AAAA1Z,
+	(VA)_CS_ONUSEITEM};
 
 // 玩家放置方块
-THook2(_CS_ONPLACEDBLOCK, bool,
-	MSSYM_B1QA8mayPlaceB1AE11BlockSourceB2AAA4QEAAB1UE10NAEBVBlockB2AAE12AEBVBlockPosB2AAE10EPEAVActorB3AAUA1NB1AA1Z,
-	BlockSource* _this, Block* pBlk, BlockPos* pBlkpos, unsigned __int8 a4, struct Actor* pPlayer, bool _bool) {
+static bool _CS_ONPLACEDBLOCK(BlockSource* _this, Block* pBlk, BlockPos* pBlkpos, unsigned __int8 a4, struct Actor* pPlayer, bool _bool) {
+	auto original = (bool(*)(BlockSource*, Block*, BlockPos*, unsigned __int8, Actor*, bool)) * getOriginalData(_CS_ONPLACEDBLOCK);
 	if (pPlayer && checkIsPlayer(pPlayer)) {
 		Player* pp = (Player*)pPlayer;
 		Events e;
@@ -1454,6 +1881,7 @@ THook2(_CS_ONPLACEDBLOCK, bool,
 		e.result = 0;
 		PlacedBlockEvent pe;
 		addPlayerInfo(&pe, pp);
+		pe.pplayer = pp;
 		pe.blockid = pBlk->getLegacyBlock()->getBlockItemID();
 		autoByteCpy(&pe.blockname, pBlk->getLegacyBlock()->getFullName().c_str());
 		memcpy(&pe.position, pBlkpos->getPosition(), sizeof(BPos3));
@@ -1470,11 +1898,12 @@ THook2(_CS_ONPLACEDBLOCK, bool,
 	}
 	return original(_this, pBlk, pBlkpos, a4, pPlayer, _bool);
 }
+static VA ONPLACEDBLOCK_SYMS[] = { 1, MSSYM_B1QA8mayPlaceB1AE11BlockSourceB2AAA4QEAAB1UE10NAEBVBlockB2AAE12AEBVBlockPosB2AAE10EPEAVActorB3AAUA1NB1AA1Z ,
+(VA)_CS_ONPLACEDBLOCK};
+
 
 // 玩家破坏方块
-THook2(_CS_ONDESTROYBLOCK, bool,
-	MSSYM_B2QUE20destroyBlockInternalB1AA8GameModeB2AAA4AEAAB1UE13NAEBVBlockPosB2AAA1EB1AA1Z,
-	void* _this, BlockPos* pBlkpos) {
+static bool _CS_ONDESTROYBLOCK(void* _this, BlockPos* pBlkpos) {
 	auto pPlayer = *reinterpret_cast<Player**>(reinterpret_cast<VA>(_this) + 8);
 	auto pBlockSource = *(BlockSource**)(*((VA*)_this + 1) + 800);
 	auto pBlk = pBlockSource->getBlock(pBlkpos);
@@ -1484,12 +1913,14 @@ THook2(_CS_ONDESTROYBLOCK, bool,
 	e.result = 0;
 	DestroyBlockEvent de;
 	addPlayerInfo(&de, pPlayer);
+	de.pplayer = pPlayer;
 	de.blockid = pBlk->getLegacyBlock()->getBlockItemID();
 	autoByteCpy(&de.blockname, pBlk->getLegacyBlock()->getFullName().c_str());
 	memcpy(&de.position, pBlkpos->getPosition(), sizeof(BPos3));
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONDESTROYBLOCK, ActMode::BEFORE, e);
 	if (ret) {
+		auto original = (bool(*)(void*, BlockPos*)) * getOriginalData(_CS_ONDESTROYBLOCK);
 		ret = original(_this, pBlkpos);
 		e.result = ret;
 		e.mode = ActMode::AFTER;
@@ -1498,12 +1929,12 @@ THook2(_CS_ONDESTROYBLOCK, bool,
 	de.releaseAll();
 	return ret;
 }
+static VA ONDESTROYBLOCK_SYMS[] = {1, MSSYM_B2QUE20destroyBlockInternalB1AA8GameModeB2AAA4AEAAB1UE13NAEBVBlockPosB2AAA1EB1AA1Z,
+	(VA)_CS_ONDESTROYBLOCK};
 
 // 玩家开箱准备
-THook2(_CS_ONCHESTBLOCKUSE, bool,
-	MSSYM_B1QA3useB1AE10ChestBlockB2AAA4UEBAB1UE11NAEAVPlayerB2AAE12AEBVBlockPosB3AAAA1Z,
-	void* _this, Player* pPlayer, BlockPos* pBlkpos) {
-	auto pBlockSource = (BlockSource*)((Level*)pPlayer->getLevel())->getDimension(pPlayer->getDimensionId())->getBlockSouce();
+static bool _CS_ONCHESTBLOCKUSE(void* _this, Player* pPlayer, BlockPos* pBlkpos) {
+	auto pBlockSource = (BlockSource*)((Level*)pPlayer->getLevel())->getDimension(pPlayer->getDimensionId())->getBlockSource();
 	auto pBlk = pBlockSource->getBlock(pBlkpos);
 	Events e;
 	e.type = EventType::onStartOpenChest;
@@ -1511,12 +1942,14 @@ THook2(_CS_ONCHESTBLOCKUSE, bool,
 	e.result = 0;
 	StartOpenChestEvent de;
 	addPlayerInfo(&de, pPlayer);
+	de.pplayer = pPlayer;
 	de.blockid = pBlk->getLegacyBlock()->getBlockItemID();
 	autoByteCpy(&de.blockname, pBlk->getLegacyBlock()->getFullName().c_str());
 	memcpy(&de.position, pBlkpos->getPosition(), sizeof(BPos3));
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONSTARTOPENCHEST, ActMode::BEFORE, e);
 	if (ret) {
+		auto original = (bool(*)(void*, Player*, BlockPos*)) * getOriginalData(_CS_ONCHESTBLOCKUSE);
 		ret = original(_this, pPlayer, pBlkpos);
 		e.result = ret;
 		e.mode = ActMode::AFTER;
@@ -1525,12 +1958,12 @@ THook2(_CS_ONCHESTBLOCKUSE, bool,
 	de.releaseAll();
 	return ret;
 }
+static VA ONSTARTOPENCHEST_SYMS[] = { 1, MSSYM_B1QA3useB1AE10ChestBlockB2AAA4UEBAB1UE11NAEAVPlayerB2AAE12AEBVBlockPosB3AAAA1Z,
+	(VA)_CS_ONCHESTBLOCKUSE };
 
 // 玩家开桶准备
-THook2(_CS_ONBARRELBLOCKUSE, bool,
-	MSSYM_B1QA3useB1AE11BarrelBlockB2AAA4UEBAB1UE11NAEAVPlayerB2AAE12AEBVBlockPosB3AAAA1Z,
-	void* _this, Player* pPlayer, BlockPos* pBlkpos) {
-	auto pBlockSource = (BlockSource*)((Level*)pPlayer->getLevel())->getDimension(pPlayer->getDimensionId())->getBlockSouce();
+static bool _CS_ONBARRELBLOCKUSE(void* _this, Player* pPlayer, BlockPos* pBlkpos) {
+	auto pBlockSource = (BlockSource*)((Level*)pPlayer->getLevel())->getDimension(pPlayer->getDimensionId())->getBlockSource();
 	auto pBlk = pBlockSource->getBlock(pBlkpos);
 	Events e;
 	e.type = EventType::onStartOpenBarrel;
@@ -1538,12 +1971,14 @@ THook2(_CS_ONBARRELBLOCKUSE, bool,
 	e.result = 0;
 	StartOpenBarrelEvent de;
 	addPlayerInfo(&de, pPlayer);
+	de.pplayer = pPlayer;
 	de.blockid = pBlk->getLegacyBlock()->getBlockItemID();
 	autoByteCpy(&de.blockname, pBlk->getLegacyBlock()->getFullName().c_str());
 	memcpy(&de.position, pBlkpos->getPosition(), sizeof(BPos3));
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONSTARTOPENBARREL, ActMode::BEFORE, e);
 	if (ret) {
+		auto original = (bool(*)(void*, Player*, BlockPos*)) * getOriginalData(_CS_ONBARRELBLOCKUSE);
 		ret = original(_this, pPlayer, pBlkpos);
 		e.result = ret;
 		e.mode = ActMode::AFTER;
@@ -1552,14 +1987,14 @@ THook2(_CS_ONBARRELBLOCKUSE, bool,
 	de.releaseAll();
 	return ret;
 }
+static VA ONSTARTOPENBARREL_SYMS[] = {1, MSSYM_B1QA3useB1AE11BarrelBlockB2AAA4UEBAB1UE11NAEAVPlayerB2AAE12AEBVBlockPosB3AAAA1Z,
+	(VA)_CS_ONBARRELBLOCKUSE};
 
 // 玩家关闭箱子
-THook2(_CS_ONSTOPOPENCHEST, void,
-	MSSYM_B1QA8stopOpenB1AE15ChestBlockActorB2AAE15UEAAXAEAVPlayerB3AAAA1Z,
-	void* _this, Player* pPlayer) {
+static void _CS_ONSTOPOPENCHEST(void* _this, Player* pPlayer) {
 	auto real_this = reinterpret_cast<void*>(reinterpret_cast<VA>(_this) - 248);
 	auto pBlkpos = reinterpret_cast<BlockActor*>(real_this)->getPosition();
-	auto pBlockSource = (BlockSource*)((Level*)pPlayer->getLevel())->getDimension(pPlayer->getDimensionId())->getBlockSouce();
+	auto pBlockSource = (BlockSource*)((Level*)pPlayer->getLevel())->getDimension(pPlayer->getDimensionId())->getBlockSource();
 	auto pBlk = pBlockSource->getBlock(pBlkpos);
 	Events e;
 	e.type = EventType::onStopOpenChest;
@@ -1567,25 +2002,27 @@ THook2(_CS_ONSTOPOPENCHEST, void,
 	e.result = 0;
 	StopOpenChestEvent de;
 	addPlayerInfo(&de, pPlayer);
+	de.pplayer = pPlayer;
 	de.blockid = pBlk->getLegacyBlock()->getBlockItemID();
 	autoByteCpy(&de.blockname, pBlk->getLegacyBlock()->getFullName().c_str());
 	memcpy(&de.position, pBlkpos->getPosition(), sizeof(BPos3));
 	e.data = &de;
 	runCscode(ActEvent.ONSTOPOPENCHEST, ActMode::BEFORE, e);
+	auto original = (void(*)(void*, Player*)) * getOriginalData(_CS_ONSTOPOPENCHEST);
 	original(_this, pPlayer);
 	e.result = true;
 	e.mode = ActMode::AFTER;
 	runCscode(ActEvent.ONSTOPOPENCHEST, ActMode::AFTER, e);
 	de.releaseAll();
 }
+static VA ONSTOPOPENCHEST_SYMS[] = {1, MSSYM_B1QA8stopOpenB1AE15ChestBlockActorB2AAE15UEAAXAEAVPlayerB3AAAA1Z,
+	(VA)_CS_ONSTOPOPENCHEST};
 
 // 玩家关闭木桶
-THook2(_CS_STOPOPENBARREL, void,
-	MSSYM_B1QA8stopOpenB1AE16BarrelBlockActorB2AAE15UEAAXAEAVPlayerB3AAAA1Z,
-	void* _this, Player* pPlayer) {
+static void _CS_STOPOPENBARREL(void* _this, Player* pPlayer) {
 	auto real_this = reinterpret_cast<void*>(reinterpret_cast<VA>(_this) - 248);
 	auto pBlkpos = reinterpret_cast<BlockActor*>(real_this)->getPosition();
-	auto pBlockSource = (BlockSource*)((Level*)pPlayer->getLevel())->getDimension(pPlayer->getDimensionId())->getBlockSouce();
+	auto pBlockSource = (BlockSource*)((Level*)pPlayer->getLevel())->getDimension(pPlayer->getDimensionId())->getBlockSource();
 	auto pBlk = pBlockSource->getBlock(pBlkpos);
 	Events e;
 	e.type = EventType::onStopOpenBarrel;
@@ -1593,29 +2030,32 @@ THook2(_CS_STOPOPENBARREL, void,
 	e.result = 0;
 	StopOpenBarrelEvent de;
 	addPlayerInfo(&de, pPlayer);
+	de.pplayer = pPlayer;
 	de.blockid = pBlk->getLegacyBlock()->getBlockItemID();
 	autoByteCpy(&de.blockname, pBlk->getLegacyBlock()->getFullName().c_str());
 	memcpy(&de.position, pBlkpos->getPosition(), sizeof(BPos3));
 	e.data = &de;
 	runCscode(ActEvent.ONSTOPOPENBARREL, ActMode::BEFORE, e);
+	auto original = (void(*)(void*, Player*)) * getOriginalData(_CS_STOPOPENBARREL);
 	original(_this, pPlayer);
 	e.result = true;
 	e.mode = ActMode::AFTER;
 	runCscode(ActEvent.ONSTOPOPENBARREL, ActMode::AFTER, e);
 	de.releaseAll();
 }
+static VA ONSTOPOPENBARREL_SYMS[] = {1, MSSYM_B1QA8stopOpenB1AE16BarrelBlockActorB2AAE15UEAAXAEAVPlayerB3AAAA1Z,
+	(VA)_CS_STOPOPENBARREL};
 
 // 玩家放入取出数量
-THook2(_CS_ONSETSLOT, void,
-	MSSYM_B1QE23containerContentChangedB1AE19LevelContainerModelB2AAA6UEAAXHB1AA1Z,
-	LevelContainerModel* a1, VA a2) {
+static void _CS_ONSETSLOT(LevelContainerModel* a1, VA a2) {
+	auto original = (void(*)(LevelContainerModel*, VA)) * getOriginalData(_CS_ONSETSLOT);
 	VA v3 = *((VA*)a1 + 26);				// IDA LevelContainerModel::_getContainer
 	BlockSource* bs = *(BlockSource**)(*(VA*)(v3 + 808) + 72);
 	BlockPos* pBlkpos = (BlockPos*)((char*)a1 + 216);
 	Block* pBlk = bs->getBlock(pBlkpos);
 	short id = pBlk->getLegacyBlock()->getBlockItemID();
 	if (id == 54 || id == 130 || id == 146 || id == -203 || id == 205 || id == 218) {	// 非箱子、桶、潜影盒的情况不作处理
-		int slot = a2;
+		int slot = (int)a2;
 		auto v5 = (*(VA(**)(LevelContainerModel*))(*(VA*)a1 + 160))(a1);
 		if (v5) {
 			ItemStack* pItemStack = (ItemStack*)(*(VA(**)(VA, VA))(*(VA*)v5 + 40))(v5, a2);
@@ -1630,6 +2070,7 @@ THook2(_CS_ONSETSLOT, void,
 			e.result = 0;
 			SetSlotEvent de;
 			addPlayerInfo(&de, pPlayer);
+			de.pplayer = pPlayer;
 			de.itemid = nid;
 			de.itemcount = nsize;
 			autoByteCpy(&de.itemname, nname.c_str());
@@ -1654,20 +2095,22 @@ THook2(_CS_ONSETSLOT, void,
 	else
 		original(a1, a2);
 }
+static VA ONSETSLOT_SYMS[] = {1, MSSYM_B1QE23containerContentChangedB1AE19LevelContainerModelB2AAA6UEAAXHB1AA1Z,
+	(VA)_CS_ONSETSLOT};
 
 // 玩家切换维度
-THook2(_CS_ONCHANGEDIMENSION, bool,
-	MSSYM_B2QUE21playerChangeDimensionB1AA5LevelB2AAA4AEAAB1UE11NPEAVPlayerB2AAE26AEAVChangeDimensionRequestB3AAAA1Z,
-	void* _this, Player* pPlayer, void* req) {
+static bool _CS_ONCHANGEDIMENSION(void* _this, Player* pPlayer, void* req) {
 	Events e;
 	e.type = EventType::onChangeDimension;
 	e.mode = ActMode::BEFORE;
 	e.result = 0;
 	ChangeDimensionEvent de;
 	addPlayerInfo(&de, pPlayer);
+	de.pplayer = pPlayer;
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONCHANGEDIMENSION, ActMode::BEFORE, e);
 	if (ret) {
+		auto original = (bool(*)(void*, Player*, void*)) * getOriginalData(_CS_ONCHANGEDIMENSION);
 		ret = original(_this, pPlayer, req);
 		e.result = ret;
 		if (ret) {
@@ -1680,20 +2123,22 @@ THook2(_CS_ONCHANGEDIMENSION, bool,
 	de.releaseAll();
 	return ret;
 }
+static VA ONCHANGEDIMENSION_SYMS[] = {1, MSSYM_B2QUE21playerChangeDimensionB1AA5LevelB2AAA4AEAAB1UE11NPEAVPlayerB2AAE26AEAVChangeDimensionRequestB3AAAA1Z ,
+	(VA)_CS_ONCHANGEDIMENSION};
 
 // 生物死亡
-THook2(_CS_ONMOBDIE, void,
-	MSSYM_B1QA3dieB1AA3MobB2AAE26UEAAXAEBVActorDamageSourceB3AAAA1Z,
-	Mob* _this, void* dmsg) {
+static void _CS_ONMOBDIE(Mob* _this, void* dmsg) {
 	Events e;
 	e.type = EventType::onMobDie;
 	e.mode = ActMode::BEFORE;
 	e.result = 0;
 	MobDieEvent de;
 	getDamageInfo(_this, dmsg, &de);
+	de.pmob = _this;
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONMOBDIE, ActMode::BEFORE, e);
 	if (ret) {
+		auto original = (void(*)(Mob*, void*))*getOriginalData(_CS_ONMOBDIE);
 		original(_this, dmsg);
 		e.result = ret;
 		e.mode = ActMode::AFTER;
@@ -1701,31 +2146,33 @@ THook2(_CS_ONMOBDIE, void,
 	}
 	de.releaseAll();
 }
+static VA ONMOBDIE_SYMS[] = { 1, MSSYM_B1QA3dieB1AA3MobB2AAE26UEAAXAEBVActorDamageSourceB3AAAA1Z, (VA)_CS_ONMOBDIE };
 
 // 玩家重生
-THook2(_CS_PLAYERRESPAWN, void, MSSYM_B1QA7respawnB1AA6PlayerB2AAA7UEAAXXZ,
-	Player* pPlayer) {
+static void _CS_PLAYERRESPAWN(Player* pPlayer) {
 	Events e;
 	e.type = EventType::onRespawn;
 	e.mode = ActMode::BEFORE;
 	e.result = 0;
 	RespawnEvent de;
 	addPlayerInfo(&de, pPlayer);
+	de.pplayer = pPlayer;
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONRESPAWN, ActMode::BEFORE, e);
 	if (ret) {
+		auto original = (void(*)(Player*)) * getOriginalData(_CS_PLAYERRESPAWN);
 		original(pPlayer);
 		e.result = ret;
 		e.mode = ActMode::AFTER;
+		addPlayerInfo(&de, pPlayer);
 		runCscode(ActEvent.ONRESPAWN, ActMode::AFTER, e);
 	}
 	de.releaseAll();
 }
+static VA ONRESPAWN_SYMS[] = { 1, MSSYM_B1QA7respawnB1AA6PlayerB2AAA7UEAAXXZ, (VA)_CS_PLAYERRESPAWN };
 
 // 聊天消息
-THook2(_CS_ONCHAT, void,
-	MSSYM_MD5_ad251f2fd8c27eb22c0c01209e8df83c,
-	void* _this, std::string& player_name, std::string& target, std::string& msg, std::string& chat_style) {
+static void _CS_ONCHAT(void* _this, std::string& player_name, std::string& target, std::string& msg, std::string& chat_style) {
 	Events e;
 	e.type = EventType::onChat;
 	e.mode = ActMode::BEFORE;
@@ -1738,6 +2185,7 @@ THook2(_CS_ONCHAT, void,
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONCHAT, ActMode::BEFORE, e);
 	if (ret) {
+		auto original = (void(*)(void*, std::string&, std::string&, std::string&, std::string&)) * getOriginalData(_CS_ONCHAT);
 		original(_this, player_name, target, msg, chat_style);
 		e.result = ret;
 		e.mode = ActMode::AFTER;
@@ -1745,11 +2193,10 @@ THook2(_CS_ONCHAT, void,
 	}
 	de.releaseAll();
 }
+static VA ONCHAT_SYMS[] = {1, MSSYM_MD5_ad251f2fd8c27eb22c0c01209e8df83c, (VA)_CS_ONCHAT };
 
 // 输入文本
-THook2(_CS_ONINPUTTEXT, void,
-	MSSYM_B1QA6handleB1AE20ServerNetworkHandlerB2AAE26UEAAXAEBVNetworkIdentifierB2AAE14AEBVTextPacketB3AAAA1Z,
-	VA _this, VA id, TextPacket* tp) {
+static void _CS_ONINPUTTEXT(VA _this, VA id, TextPacket* tp) {
 	Player* p = SYMCALL(Player*, MSSYM_B2QUE15getServerPlayerB1AE20ServerNetworkHandlerB2AAE20AEAAPEAVServerPlayerB2AAE21AEBVNetworkIdentifierB2AAA1EB1AA1Z,
 		_this, id, *((char*)tp + 16));
 	Events e;
@@ -1759,11 +2206,13 @@ THook2(_CS_ONINPUTTEXT, void,
 	InputTextEvent de;
 	if (p != NULL) {
 		addPlayerInfo(&de, p);
+		de.pplayer = p;
 	}
 	autoByteCpy(&de.msg, tp->toString().c_str());
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONINPUTTEXT, ActMode::BEFORE, e);
 	if (ret) {
+		auto original = (void(*)(VA, VA, TextPacket*)) * getOriginalData(_CS_ONINPUTTEXT);
 		original(_this, id, tp);
 		e.result = ret;
 		e.mode = ActMode::AFTER;
@@ -1771,6 +2220,8 @@ THook2(_CS_ONINPUTTEXT, void,
 	}
 	de.releaseAll();
 }
+static VA ONINPUTTEXT_SYMS[] = { 1, MSSYM_B1QA6handleB1AE20ServerNetworkHandlerB2AAE26UEAAXAEBVNetworkIdentifierB2AAE14AEBVTextPacketB3AAAA1Z,
+	(VA)_CS_ONINPUTTEXT };
 
 // MakeWP
 static Player* MakeWP(CommandOrigin& ori) {
@@ -1781,9 +2232,8 @@ static Player* MakeWP(CommandOrigin& ori) {
 }
 
 // 玩家执行指令
-THook2(_CS_ONINPUTCOMMAND, VA,
-	MSSYM_B1QE14executeCommandB1AE17MinecraftCommandsB2AAA4QEBAB1QE10AUMCRESULTB2AAA1VB2QDA6sharedB1UA3ptrB1AE15VCommandContextB3AAAA3stdB3AAUA1NB1AA1Z,
-	VA _this, VA mret, std::shared_ptr<CommandContext> x, char a4) {
+static VA _CS_ONINPUTCOMMAND(VA _this, VA mret, std::shared_ptr<CommandContext> x, char a4) {
+	auto original = (VA(*)(VA, VA, std::shared_ptr<CommandContext>, char)) * getOriginalData(_CS_ONINPUTCOMMAND);
 	Player* p = MakeWP(x->getOrigin());
 	if (p) {
 		Events e;
@@ -1793,6 +2243,7 @@ THook2(_CS_ONINPUTCOMMAND, VA,
 		InputCommandEvent de;
 		if (p != NULL) {
 			addPlayerInfo(&de, p);
+			de.pplayer = p;
 		}
 		autoByteCpy(&de.cmd, x->getCmd().c_str());
 		VA mcmd = 0;
@@ -1809,6 +2260,8 @@ THook2(_CS_ONINPUTCOMMAND, VA,
 	}
 	return original(_this, mret, x, a4);
 }
+static VA ONINPUTCOMMAND_SYMS[] = { 1, MSSYM_B1QE14executeCommandB1AE17MinecraftCommandsB2AAA4QEBAB1QE10AUMCRESULTB2AAA1VB2QDA6sharedB1UA3ptrB1AE15VCommandContextB3AAAA3stdB3AAUA1NB1AA1Z,
+	(VA)_CS_ONINPUTCOMMAND };
 
 // 玩家加载名字
 THook2(_CS_ONCREATEPLAYER, VA,
@@ -1827,6 +2280,7 @@ THook2(_CS_ONCREATEPLAYER, VA,
 #if (COMMERCIAL)
 	autoByteCpy(&le.ability, getAbilities(pPlayer).toStyledString().c_str());
 #endif
+	le.pplayer = pPlayer;
 	e.data = &le;
 	onlinePlayers[uuid] = pPlayer;
 	playerSign[pPlayer] = true;
@@ -1839,7 +2293,24 @@ THook2(_CS_ONCREATEPLAYER, VA,
 	le.releaseAll();
 	return hret;
 }
-
+THook2(_CS_ONLEVELUP, void, MSSYM_B1QA9addLevelsB1AA6PlayerB2AAA6UEAAXHB1AA1Z, Player* pl, int a1) {
+	Events e;
+	e.type = EventType::onPlayerLeft;
+	e.mode = ActMode::BEFORE;
+	e.result = 0;
+	LevelUpEvent le;
+	le.lv = a1;
+	addPlayerInfo(&le, pl);
+	e.data = &le;
+	bool ret = runCscode(ActEvent.ONLEVELUP, ActMode::BEFORE, e);
+	if (ret) {
+		original(pl,a1);
+		e.result = ret;
+		e.mode = ActMode::AFTER;
+		runCscode(ActEvent.ONLEVELUP, ActMode::AFTER, e);
+	}
+	le.releaseAll();
+}
 // 玩家离开游戏
 THook2(_CS_ONPLAYERLEFT, void,
 	MSSYM_B2QUE12onPlayerLeftB1AE20ServerNetworkHandlerB2AAE21AEAAXPEAVServerPlayerB3AAUA1NB1AA1Z,
@@ -1856,6 +2327,7 @@ THook2(_CS_ONPLAYERLEFT, void,
 #if (COMMERCIAL)
 	autoByteCpy(&le.ability, getAbilities(pPlayer).toStyledString().c_str());
 #endif
+	le.pplayer = pPlayer;
 	e.data = &le;
 	bool ret = runCscode(ActEvent.ONPLAYERLEFT, ActMode::BEFORE, e);
 	playerSign[pPlayer] = false;
@@ -1896,47 +2368,50 @@ THook2(_CS_ONLOGOUT, VA,
 }
 
 // 玩家移动信息构筑
-THook2(_CS_ONMOVE, VA,
-	MSSYM_B2QQE170MovePlayerPacketB2AAA4QEAAB1AE10AEAVPlayerB2AAE14W4PositionModeB1AA11B1AA2HHB1AA1Z,
-	void* _this, Player* pPlayer, char v3, int v4, int v5) {
-	int reg = (beforecallbacks[ActEvent.ONMOVE] != NULL ? beforecallbacks[ActEvent.ONMOVE]->size() : 0) +
-		(aftercallbacks[ActEvent.ONMOVE] != NULL ? beforecallbacks[ActEvent.ONMOVE]->size() : 0);
+static VA _CS_ONMOVE(void* _this, Player* pPlayer, char v3, int v4, int v5) {
+	auto original = (VA(*)(void*, Player*, char, int, int)) * getOriginalData(_CS_ONMOVE);
+	VA reg = (beforecallbacks[ActEvent.ONMOVE] != NULL ? beforecallbacks[ActEvent.ONMOVE]->size() : 0) +
+		(aftercallbacks[ActEvent.ONMOVE] != NULL ? aftercallbacks[ActEvent.ONMOVE]->size() : 0);
 	if (!reg)
 		return original(_this, pPlayer, v3, v4, v5);
 	VA reto = 0;
 	Events e;
+	MoveEvent de;
 	e.type = EventType::onMove;
 	e.mode = ActMode::BEFORE;
 	e.result = 0;
-	MoveEvent de;
 	addPlayerInfo(&de, pPlayer);
+	de.pplayer = pPlayer;
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONMOVE, ActMode::BEFORE, e);
 	if (ret) {
-		reto = original(_this, pPlayer, v3, v3, v4);
+		reto = original(_this, pPlayer, v3, v4, v5);
 		e.result = ret;
 		runCscode(ActEvent.ONMOVE, ActMode::AFTER, e);
 	}
 	de.releaseAll();
 	return reto;
 }
+static VA ONMOVE_SYMS[] = {1, MSSYM_B2QQE170MovePlayerPacketB2AAA4QEAAB1AE10AEAVPlayerB2AAE14W4PositionModeB1AA11B1AA2HHB1AA1Z,
+	(VA)_CS_ONMOVE};
 
 // 玩家攻击监听
-THook2(_CS_ONATTACK, bool,
-	MSSYM_B1QA6attackB1AA6PlayerB2AAA4UEAAB1UE10NAEAVActorB3AAAA1Z,
-	Player* pPlayer, Actor* pa) {
+static bool _CS_ONATTACK(Player* pPlayer, Actor* pa) {
 	Events e;
 	e.type = EventType::onAttack;
 	e.mode = ActMode::BEFORE;
 	e.result = 0;
 	AttackEvent de;
 	addPlayerInfo(&de, pPlayer);
+	de.pattacker = pPlayer;
+	de.pattackedentity = pa;
 	memcpy(&de.actorpos, pa->getPos(), sizeof(Vec3));
 	autoByteCpy(&de.actorname, pa->getNameTag().c_str());
 	autoByteCpy(&de.actortype, pa->getTypeName().c_str());
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONATTACK, ActMode::BEFORE, e);
 	if (ret) {
+		auto original = (bool(*)(Player*, Actor*)) * getOriginalData(_CS_ONATTACK);
 		ret = original(pPlayer, pa);
 		e.result = ret;
 		e.mode = ActMode::AFTER;
@@ -1945,11 +2420,11 @@ THook2(_CS_ONATTACK, bool,
 	de.releaseAll();
 	return ret;
 }
+static VA ONATTACK_SYMS[] = {1, MSSYM_B1QA6attackB1AA6PlayerB2AAA4UEAAB1UE10NAEAVActorB3AAAA1Z,
+	(VA)_CS_ONATTACK};
 
 // 全图范围爆炸监听
-THook2(_CS_ONLEVELEXPLODE, void,
-	MSSYM_B1QA7explodeB1AA5LevelB2AAE20QEAAXAEAVBlockSourceB2AAA9PEAVActorB2AAA8AEBVVec3B2AAA1MB1UA4N3M3B1AA1Z,
-	VA _this, BlockSource* a2, Actor* a3, Vec3* a4, float a5, bool a6, bool a7, float a8, bool a9) {
+static void _CS_ONLEVELEXPLODE(VA _this, BlockSource* a2, Actor* a3, Vec3* a4, float a5, bool a6, bool a7, float a8, bool a9) {
 	Events e;
 	e.type = EventType::onLevelExplode;
 	e.mode = ActMode::BEFORE;
@@ -1970,6 +2445,7 @@ THook2(_CS_ONLEVELEXPLODE, void,
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONLEVELEXPLODE, ActMode::BEFORE, e);
 	if (ret) {
+		auto original = (void(*)(VA, BlockSource*, Actor*, Vec3*, float, bool, bool, float, bool)) * getOriginalData(_CS_ONLEVELEXPLODE);
 		original(_this, a2, a3, a4, a5, a6, a7, a8, a9);
 		e.result = ret;
 		e.mode = ActMode::AFTER;
@@ -1978,9 +2454,8 @@ THook2(_CS_ONLEVELEXPLODE, void,
 	de.releaseAll();
 }
 // 重生锚爆炸监听
-THook2(_CS_SETRESPWNEXPLOREDE, bool,
-	MSSYM_B1QE11trySetSpawnB1AE18RespawnAnchorBlockB2AAA2CAB1UE11NAEAVPlayerB2AAE12AEBVBlockPosB2AAE15AEAVBlockSourceB2AAA9AEAVLevelB3AAAA1Z,
-	Player* pPlayer, BlockPos* a2, BlockSource* a3, Level* a4) {
+static bool _CS_SETRESPWNEXPLOREDE(Player* pPlayer, BlockPos* a2, BlockSource* a3, Level* a4) {
+	auto original = (bool(*)(Player*, BlockPos*, BlockSource*, Level*)) * getOriginalData(_CS_SETRESPWNEXPLOREDE);
 	auto v8 = a3->getBlock(a2);
 	auto v9 = (VA*)*((VA*)v8 + 2);
 	VA qwt = SYM_OBJECT(VA, (MSSYM_B1QE19RespawnAnchorChargeB1AE13VanillaStatesB2AAA23VB2QDE16ItemStateVariantB1AA1HB2AAA1B + 8));
@@ -2008,9 +2483,9 @@ THook2(_CS_SETRESPWNEXPLOREDE, bool,
 					autoByteCpy(&de.blockname, v8->getLegacyBlock()->getFullName().c_str());
 					de.dimensionid = a3->getDimensionId();
 					autoByteCpy(&de.dimension, toDimenStr(de.dimensionid).c_str());
-					de.position.x = a2->getPosition()->x;
-					de.position.y = a2->getPosition()->y;
-					de.position.z = a2->getPosition()->z;
+					de.position.x = (float)a2->getPosition()->x;
+					de.position.y = (float)a2->getPosition()->y;
+					de.position.z = (float)a2->getPosition()->z;
 					de.explodepower = pw;
 					e.data = &de;
 					bool ret = runCscode(ActEvent.ONLEVELEXPLODE, ActMode::BEFORE, e);
@@ -2028,6 +2503,90 @@ THook2(_CS_SETRESPWNEXPLOREDE, bool,
 	}
 	return original(pPlayer, a2, a3, a4);
 }
+static VA ONLEVELEXPLODE_SYMS[] = { 2, MSSYM_B1QA7explodeB1AA5LevelB2AAE20QEAAXAEAVBlockSourceB2AAA9PEAVActorB2AAA8AEBVVec3B2AAA1MB1UA4N3M3B1AA1Z,
+	(VA)_CS_ONLEVELEXPLODE,
+	MSSYM_B1QE11trySetSpawnB1AE18RespawnAnchorBlockB2AAA2CAB1UE11NAEAVPlayerB2AAE12AEBVBlockPosB2AAE15AEAVBlockSourceB2AAA9AEAVLevelB3AAAA1Z,
+	(VA)_CS_SETRESPWNEXPLOREDE };
+// 玩家切换护甲（不含主副手）
+static VA _CS_ONSETARMOR(Player* p, int slot, ItemStack *i) {
+	auto original = (VA(*)(Player *, int, ItemStack *)) * getOriginalData(_CS_ONSETARMOR);
+	if (checkIsPlayer(p)) {
+		ItemStack* pItemStack = i;
+		auto nid = pItemStack->getId();
+		auto naux = pItemStack->getAuxValue();
+		auto nsize = pItemStack->getStackSize();
+		auto nname = std::string(pItemStack->getName());
+		auto pPlayer = p;
+		Events e;
+		e.type = EventType::onEquippedArmor;
+		e.mode = ActMode::BEFORE;
+		e.result = 0;
+		EquippedArmorEvent de;
+		addPlayerInfo(&de, pPlayer);
+		de.pplayer = pPlayer;
+		de.itemid = nid;
+		de.itemcount = nsize;
+		autoByteCpy(&de.itemname, nname.c_str());
+		de.itemaux = naux;
+		de.slot = slot;
+		e.data = &de;
+		bool ret = runCscode(ActEvent.ONEQUIPPEDARMOR, ActMode::BEFORE, e);
+		if (ret) {
+			VA ret = original(p, slot, i);
+			e.result = true;
+			e.mode = ActMode::AFTER;
+			runCscode(ActEvent.ONEQUIPPEDARMOR, ActMode::AFTER, e);
+			return ret;
+		}
+		de.releaseAll();
+		return 0;
+	}
+	return original(p, slot, i);
+}
+static VA ONSETARMOR_SYMS[] = { 1, MSSYM_B1QA8setArmorB1AE12ServerPlayerB2AAE16UEAAXW4ArmorSlotB2AAE13AEBVItemStackB3AAAA1Z,
+	(VA)_CS_ONSETARMOR };
+
+/*THook(void,
+	MSSYM_B1QA9addLevelsB1AA6PlayerB2AAA6UEAAXHB1AA1Z,
+	Player* pl, int lv) {
+	std::cout << lv << std::endl;
+}*/
+// 初始化各类hook的事件绑定，基于构造函数
+static struct EventSymsInit{
+public:
+	EventSymsInit() {
+		sListens[ActEvent.ONSERVERCMD] = ONSERVERCMD_SYMS;
+		sListens[ActEvent.ONSERVERCMDOUTPUT] = ONSERVERCMDOUTPUT_SYMS;
+		sListens[ActEvent.ONFORMSELECT] = ONFORMSELECT_SYMS;
+		sListens[ActEvent.ONUSEITEM] = ONUSEITEM_SYMS;
+		sListens[ActEvent.ONMOVE] = ONMOVE_SYMS;
+		sListens[ActEvent.ONATTACK] = ONATTACK_SYMS;
+		sListens[ActEvent.ONPLACEDBLOCK] = ONPLACEDBLOCK_SYMS;
+		sListens[ActEvent.ONDESTROYBLOCK] = ONDESTROYBLOCK_SYMS;
+		sListens[ActEvent.ONSTARTOPENCHEST] = ONSTARTOPENCHEST_SYMS;
+		sListens[ActEvent.ONSTARTOPENBARREL] = ONSTARTOPENBARREL_SYMS;
+		sListens[ActEvent.ONCHANGEDIMENSION] = ONCHANGEDIMENSION_SYMS;
+		isListened[ActEvent.ONLOADNAME] = true;
+		isListened[ActEvent.ONLEVELUP] = true;
+		isListened[ActEvent.ONPLAYERLEFT] = true;
+		sListens[ActEvent.ONSTOPOPENCHEST] = ONSTOPOPENCHEST_SYMS;
+		sListens[ActEvent.ONSTOPOPENBARREL] = ONSTOPOPENBARREL_SYMS;
+		sListens[ActEvent.ONSETSLOT] = ONSETSLOT_SYMS;
+		sListens[ActEvent.ONMOBDIE] = ONMOBDIE_SYMS;
+		sListens[ActEvent.ONRESPAWN] = ONRESPAWN_SYMS;
+		sListens[ActEvent.ONCHAT] = ONCHAT_SYMS;
+		sListens[ActEvent.ONINPUTTEXT] = ONINPUTTEXT_SYMS;
+		sListens[ActEvent.ONINPUTCOMMAND] = ONINPUTCOMMAND_SYMS;
+		sListens[ActEvent.ONLEVELEXPLODE] = ONLEVELEXPLODE_SYMS;
+		sListens[ActEvent.ONEQUIPPEDARMOR] = ONSETARMOR_SYMS;
+#if (COMMERCIAL)
+		isListened[ActEvent.ONMOBHURT] = true;
+		isListened[ActEvent.ONBLOCKCMD] = true;
+		isListened[ActEvent.ONNPCCMD] = true;
+		isListened[ActEvent.ONCOMMANDBLOCKUPDATE] = true;
+#endif
+	}
+} _EventSymsInit;
 
 static char localpath[MAX_PATH] = { 0 };
 
@@ -2035,7 +2594,7 @@ static char localpath[MAX_PATH] = { 0 };
 static std::string getLocalPath() {
 	if (!localpath[0]) {
 		GetModuleFileNameA(NULL, localpath, _countof(localpath));
-		for (VA l = strlen(localpath); l >= 0; l--) {
+		for (size_t l = strlen(localpath); l != 0; l--) {
 			if (localpath[l] == '\\') {
 				localpath[l] = localpath[l + 1] = localpath[l + 2] = 0;
 				break;
@@ -2081,10 +2640,10 @@ static void initNetFramework() {
 					if (!(ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
 					{
 						std::string fileName = std::string(path + "\\" + ffd.cFileName);
-						int len = MultiByteToWideChar(CP_ACP, 0, fileName.c_str(), fileName.length(), NULL, 0);
-						LPWSTR w_str = new WCHAR[len + 1];
+						int len = MultiByteToWideChar(CP_ACP, 0, fileName.c_str(), (int)fileName.length(), NULL, 0);
+						LPWSTR w_str = new WCHAR[(size_t)len + 1];
 						w_str[len] = L'\0';
-						MultiByteToWideChar(CP_ACP, 0, fileName.c_str(), fileName.length(), w_str, len);
+						MultiByteToWideChar(CP_ACP, 0, fileName.c_str(), (int)fileName.length(), w_str, len);
 						LPCWSTR dllName = w_str;
 						std::wcout << L"[CSR] load " << dllName << std::endl;
 						hr = pRuntimeHost->ExecuteInDefaultAppDomain(dllName,	// 插件实际路径
@@ -2158,6 +2717,8 @@ static void initExtraApi() {
 	extraApi["removePlayerSidebar"] = &removePlayerSidebar;
 	extraApi["getPlayerPermissionAndGametype"] = &getPlayerPermissionAndGametype;
 	extraApi["setPlayerPermissionAndGametype"] = &setPlayerPermissionAndGametype;
+	extraApi["getExBlock"] = &getExBlock;
+	extraApi["setExBlock"] = &setExBlock;
 #endif
 }
 
@@ -2165,6 +2726,9 @@ void* getExtraAPI(const char* apiname) {
 	std::string k = std::string(apiname);
 	return extraApi[k];
 }
+
+
+
 
 // 初始化工作
 static void initMods()
@@ -2180,10 +2744,12 @@ static void initMods()
 
 static std::unordered_map<void*, void**> hooks;
 
+// 获取指定原型存储位置
 void** getOriginalData(void* hook) {
 	return hooks[hook];
 }
 
+// 挂载hook
 HookErrorCode mTHook2(RVA sym, void* hook) {
 	hooks[hook] = new void* [1]{ 0 };
 	void** org = hooks[hook];

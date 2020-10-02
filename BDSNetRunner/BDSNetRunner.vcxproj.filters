@@ -63,6 +63,9 @@
     <ClInclude Include="scoreboard\scoreboard.hpp">
       <Filter>scoreboard</Filter>
     </ClInclude>
+    <ClInclude Include="Component.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">

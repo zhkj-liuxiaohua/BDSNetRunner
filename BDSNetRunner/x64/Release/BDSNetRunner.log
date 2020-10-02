@@ -1,0 +1,10 @@
+﻿    正在创建库 C:\Users\Administrator\source\repos\BDSNetRunner\x64\Release\BDSNetRunner.lib 和对象 C:\Users\Administrator\source\repos\BDSNetRunner\x64\Release\BDSNetRunner.exp
+  正在生成代码
+  0 of 2417 functions ( 0.0%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    0 functions had inline decision re-evaluated but remain unchanged
+  已完成代码的生成
+detours.lib(detours.obj) : warning LNK4099: 未找到 PDB“detours.pdb”(使用“detours.lib(detours.obj)”或在“C:\Users\Administrator\source\repos\BDSNetRunner\x64\Release\detours.pdb”中寻找)；正在链接对象，如同没有调试信息一样
+detours.lib(modules.obj) : warning LNK4099: 未找到 PDB“detours.pdb”(使用“detours.lib(modules.obj)”或在“C:\Users\Administrator\source\repos\BDSNetRunner\x64\Release\detours.pdb”中寻找)；正在链接对象，如同没有调试信息一样
+detours.lib(disasm.obj) : warning LNK4099: 未找到 PDB“detours.pdb”(使用“detours.lib(disasm.obj)”或在“C:\Users\Administrator\source\repos\BDSNetRunner\x64\Release\detours.pdb”中寻找)；正在链接对象，如同没有调试信息一样
+  BDSNetRunner.vcxproj -> C:\Users\Administrator\source\repos\BDSNetRunner\x64\Release\BDSNetRunner.dll
