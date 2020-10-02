@@ -2293,7 +2293,28 @@ THook2(_CS_ONCREATEPLAYER, VA,
 	le.releaseAll();
 	return hret;
 }
-
+//玩家升级
+THook2(_CS_ONLEVELUP, VA, MSSYM_B1QA9addLevelsB1AA6PlayerB2AAA6UEAAXHB1AA1Z, Player* pl, int a1) {
+	VA hret = original(pl,a1);
+	Events e;
+	e.type = EventType::onLevelUp;
+	e.mode = ActMode::BEFORE;
+	e.result = 0;
+	LevelUpEvent le;
+	le.lv = a1;
+	le.p = pl;
+	autoByteCpy(&le.uuid, pl->getUuid()->toString().c_str());
+	autoByteCpy(&le.playername, pl->getNameTag().c_str());
+	e.data = &le;
+	bool ret = runCscode(ActEvent.ONLEVELUP, ActMode::BEFORE, e);
+	if (ret) {
+		original(pl,a1);
+		e.result = ret;
+		e.mode = ActMode::AFTER;
+		runCscode(ActEvent.ONLEVELUP, ActMode::AFTER, e);
+	}
+	return hret;
+}
 // 玩家离开游戏
 THook2(_CS_ONPLAYERLEFT, void,
 	MSSYM_B2QUE12onPlayerLeftB1AE20ServerNetworkHandlerB2AAE21AEAAXPEAVServerPlayerB3AAUA1NB1AA1Z,
@@ -2490,7 +2511,6 @@ static VA ONLEVELEXPLODE_SYMS[] = { 2, MSSYM_B1QA7explodeB1AA5LevelB2AAE20QEAAXA
 	(VA)_CS_ONLEVELEXPLODE,
 	MSSYM_B1QE11trySetSpawnB1AE18RespawnAnchorBlockB2AAA2CAB1UE11NAEAVPlayerB2AAE12AEBVBlockPosB2AAE15AEAVBlockSourceB2AAA9AEAVLevelB3AAAA1Z,
 	(VA)_CS_SETRESPWNEXPLOREDE };
-
 // 玩家切换护甲（不含主副手）
 static VA _CS_ONSETARMOR(Player* p, int slot, ItemStack *i) {
 	auto original = (VA(*)(Player *, int, ItemStack *)) * getOriginalData(_CS_ONSETARMOR);
@@ -2530,6 +2550,11 @@ static VA _CS_ONSETARMOR(Player* p, int slot, ItemStack *i) {
 static VA ONSETARMOR_SYMS[] = { 1, MSSYM_B1QA8setArmorB1AE12ServerPlayerB2AAE16UEAAXW4ArmorSlotB2AAE13AEBVItemStackB3AAAA1Z,
 	(VA)_CS_ONSETARMOR };
 
+/*THook(void,
+	MSSYM_B1QA9addLevelsB1AA6PlayerB2AAA6UEAAXHB1AA1Z,
+	Player* pl, int lv) {
+	std::cout << lv << std::endl;
+}*/
 // 初始化各类hook的事件绑定，基于构造函数
 static struct EventSymsInit{
 public:
@@ -2546,6 +2571,7 @@ public:
 		sListens[ActEvent.ONSTARTOPENBARREL] = ONSTARTOPENBARREL_SYMS;
 		sListens[ActEvent.ONCHANGEDIMENSION] = ONCHANGEDIMENSION_SYMS;
 		isListened[ActEvent.ONLOADNAME] = true;
+		isListened[ActEvent.ONLEVELUP] = true;
 		isListened[ActEvent.ONPLAYERLEFT] = true;
 		sListens[ActEvent.ONSTOPOPENCHEST] = ONSTOPOPENCHEST_SYMS;
 		sListens[ActEvent.ONSTOPOPENBARREL] = ONSTOPOPENBARREL_SYMS;
