@@ -389,23 +389,6 @@ namespace CSR
 	}
 	/// <summary>
 	/// 后台指令监听<br/>
-	/// 拦截可否：可能吧
-	/// </summary>
-	public class LevelUpEvent : BaseEvent {
-		protected int _lv;
-		public int lv { get { return _lv; } }
-		public static new LevelUpEvent getFrom(Events e)
-		{
-			var sce = createHead(e, EventType.onLevelUp, typeof(LevelUpEvent)) as LevelUpEvent;
-			if (sce == null)
-				return sce;
-			IntPtr s = e.data;  // 此处为转换过程
-			sce._lv = Convert.ToInt32(StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 0)));
-			return sce;
-		}
-	}
-	/// <summary>
-	/// 后台指令监听<br/>
 	/// 拦截可否：是
 	/// </summary>
 	public class ServerCmdEvent : BaseEvent {
@@ -424,7 +407,6 @@ namespace CSR
 			return sce;
 		}
 	}
-
 	/// <summary>
 	/// 后台指令输出信息监听<br/>
 	/// 拦截可否：是
@@ -741,7 +723,7 @@ namespace CSR
 			var le = createHead(e, EventType.onSetSlot, typeof(SetSlotEvent)) as SetSlotEvent;
 			if (le == null)
 				return null;
-			IntPtr s = e.data;  // 此处为转换过程
+			IntPtr s = e.data;
 			le.loadData(s);
 			le.mitemname = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 40));
 			le.mblockname = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 48));
@@ -1162,7 +1144,45 @@ namespace CSR
 			return le;
 		}
 	}
-
+	/// <summary>
+	/// 玩家升级监听<br/>
+	/// 拦截可否：是
+	/// </summary>
+	public class LevelUpEvent:BaseEvent
+	{
+		protected int mlv;
+		protected string mplayername;
+		protected string muuid;
+		protected IntPtr mplayer;
+		/// <summary>
+		/// 等级
+		/// </summary>
+		public int lv { get { return mlv; } }
+		/// <summary>
+		/// 玩家名字
+		/// </summary>
+		public string playername { get { return mplayername; } }
+		/// <summary>
+		/// 玩家uuid字符串
+		/// </summary>
+		public string uuid { get { return muuid; } }
+		/// <summary>
+		/// 玩家指针
+		/// </summary>
+		public IntPtr playerPtr { get { return mplayer; } }
+		public static new LevelUpEvent getFrom(Events e)
+		{
+			var soe = createHead(e, EventType.onLevelUp, typeof(LevelUpEvent)) as LevelUpEvent;
+			if (soe == null)
+				return soe;
+			IntPtr s = e.data;  // 此处为转换过程
+			soe.mlv = Marshal.ReadInt32(s,0);
+			soe.mplayername = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 8));
+			soe.muuid = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 16));
+			soe.mplayer= Marshal.ReadIntPtr(s, 32);
+			return soe;
+		}
+	}
 	/// <summary>
 	/// 加载名字监听<br/>
 	/// 拦截可否：否
