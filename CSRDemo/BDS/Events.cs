@@ -7,12 +7,17 @@
  * 要改变这种模板请点击 工具|选项|代码编写|编辑标准头文件
  */
 using System;
+using System.Collections;
 using System.Runtime.InteropServices;
 using System.Text;
 
 namespace CSR
 {
 	public static class EventKey {
+		/// <summary>
+		/// 玩家升级
+		/// </summary>
+		public const string onLevelUp = "onLevelUp";
 		/// <summary>
 		/// 无作用
 		/// </summary>
@@ -121,8 +126,12 @@ namespace CSR
 		/// onLevelExplode - 爆炸监听
 		/// </summary>
 		public const string onLevelExplode = "onLevelExplode";
+		/// <summary>
+		/// onEquippedArmor - 玩家切换护甲监听
+		/// </summary>
+		public const string onEquippedArmor = "onEquippedArmor";
 	}
-	
+
 	public enum EventType {
 		Nothing = 0,
 		onServerCmd = 1,
@@ -150,14 +159,16 @@ namespace CSR
 		onPlayerLeft = 23,
 		onMove = 24,
 		onAttack = 25,
-		onLevelExplode = 26
+		onLevelExplode = 26,
+		onEquippedArmor = 27,
+		onLevelUp = 28
 	}
-	
+
 	public enum ActMode {
 		BEFORE = 0,
 		AFTER = 1
 	}
-	
+
 	[StructLayoutAttribute(LayoutKind.Sequential)]
 	public struct Events {
 		/// <summary>
@@ -177,12 +188,29 @@ namespace CSR
 		/// </summary>
 		public IntPtr data;
 	}
-	
+
 	public struct BPos3 {
 		public int x, y, z;
 	}
 	public struct Vec3 {
 		public float x, y, z;
+	}
+
+	[StructLayoutAttribute(LayoutKind.Sequential)]
+	public struct Std_Vector
+	{
+		public IntPtr data;
+		public IntPtr last;
+		public IntPtr end;
+		// 从std::vector中读取所有元素(限定为指针)
+		public ArrayList toList() {
+			ArrayList al = new ArrayList();
+			var l = ((ulong)last - (ulong)data) / (ulong)IntPtr.Size;
+			for (ulong i = 0; i < l; i++) {
+				al.Add(Marshal.ReadIntPtr(data, (int)(i * (ulong)IntPtr.Size)));
+			}
+			return al;
+		}
 	}
 
 	[StructLayoutAttribute(LayoutKind.Sequential)]
@@ -218,9 +246,9 @@ namespace CSR
 		}
 		// std::string中读取c_str
 		public static string c_str(Std_String s)
-        {
+		{
 			try
-            {
+			{
 				if (s.len < 1)
 					return String.Empty;
 				if (s.len < 16)
@@ -234,11 +262,11 @@ namespace CSR
 				}
 				return readUTF8str(s.data);
 			}
-            catch (Exception e){ Console.WriteLine(e.StackTrace); }
+			catch (Exception e) { Console.WriteLine(e.StackTrace); }
 			return null;
 		}
 	}
-	
+
 	public class BaseEvent {
 		protected EventType mTYPE;
 		protected ActMode mMODE;
@@ -246,16 +274,16 @@ namespace CSR
 		/// <summary>
 		/// 事件类型
 		/// </summary>
-		public EventType TYPE {get{return mTYPE;}}
+		public EventType TYPE { get { return mTYPE; } }
 		/// <summary>
 		/// 事件触发模式
 		/// </summary>
-		public ActMode MODE {get{return mMODE;}}
+		public ActMode MODE { get { return mMODE; } }
 		/// <summary>
 		/// 事件结果（注册After事件时，此值有效）
 		/// </summary>
-		public bool RESULT {get{return mRESULT;}}
-		
+		public bool RESULT { get { return mRESULT; } }
+
 		/// <summary>
 		/// 解析一个事件数据
 		/// </summary>
@@ -271,6 +299,8 @@ namespace CSR
 			{
 				switch ((EventType)e.type)
 				{
+					case EventType.onLevelUp:
+						return LevelUpEvent.getFrom(e);
 					case EventType.onServerCmd:
 						return ServerCmdEvent.getFrom(e);
 					case EventType.onServerCmdOutput:
@@ -323,6 +353,8 @@ namespace CSR
 						return AttackEvent.getFrom(e);
 					case EventType.onLevelExplode:
 						return LevelExplodeEvent.getFrom(e);
+					case EventType.onEquippedArmor:
+						return EquippedArmorEvent.getFrom(e);
 					default:
 						// do nothing
 						break;
@@ -330,7 +362,7 @@ namespace CSR
 			} catch (Exception ex) { Console.WriteLine(ex.StackTrace); }
 			return null;
 		}
-		
+
 		/// <summary>
 		/// 构造一个事件头部
 		/// </summary>
@@ -355,7 +387,23 @@ namespace CSR
 			return null;
 		}
 	}
-
+	/// <summary>
+	/// 后台指令监听<br/>
+	/// 拦截可否：可能吧
+	/// </summary>
+	public class LevelUpEvent : BaseEvent {
+		protected int _lv;
+		public int lv { get { return _lv; } }
+		public static new LevelUpEvent getFrom(Events e)
+		{
+			var sce = createHead(e, EventType.onLevelUp, typeof(LevelUpEvent)) as LevelUpEvent;
+			if (sce == null)
+				return sce;
+			IntPtr s = e.data;  // 此处为转换过程
+			sce._lv = Convert.ToInt32(StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 0)));
+			return sce;
+		}
+	}
 	/// <summary>
 	/// 后台指令监听<br/>
 	/// 拦截可否：是
@@ -365,18 +413,18 @@ namespace CSR
 		/// <summary>
 		/// 指令数据
 		/// </summary>
-		public string cmd {get {return mcmd;}}
+		public string cmd { get { return mcmd; } }
 		public static new ServerCmdEvent getFrom(Events e)
 		{
 			var sce = createHead(e, EventType.onServerCmd, typeof(ServerCmdEvent)) as ServerCmdEvent;
 			if (sce == null)
 				return sce;
-			IntPtr s = e.data;	// 此处为转换过程
+			IntPtr s = e.data;  // 此处为转换过程
 			sce.mcmd = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 0));
 			return sce;
 		}
 	}
-	
+
 	/// <summary>
 	/// 后台指令输出信息监听<br/>
 	/// 拦截可否：是
@@ -386,54 +434,59 @@ namespace CSR
 		/// <summary>
 		/// 指令数据
 		/// </summary>
-		public string output {get{return moutput;}}
+		public string output { get { return moutput; } }
 		public static new ServerCmdOutputEvent getFrom(Events e)
 		{
 			var soe = createHead(e, EventType.onServerCmdOutput, typeof(ServerCmdOutputEvent)) as ServerCmdOutputEvent;
 			if (soe == null)
 				return soe;
-			IntPtr s = e.data;	// 此处为转换过程
+			IntPtr s = e.data;  // 此处为转换过程
 			soe.moutput = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 0));
 			return soe;
 		}
 	}
-	
+
 	public class PlayerEvent : BaseEvent {
 		protected string mplayername;
 		protected string mdimension;
 		protected Vec3 mXYZ;
 		protected int mdimensionid;
 		protected bool misstand;
+		protected IntPtr mplayer;
 		/// <summary>
 		/// 玩家名字
 		/// </summary>
-		public string playername {get{return mplayername;}}
+		public string playername { get { return mplayername; } }
 		/// <summary>
 		/// 玩家所在维度
 		/// </summary>
-		public string dimension {get{return mdimension;}}
+		public string dimension { get { return mdimension; } }
 		/// <summary>
 		/// 玩家所处位置
 		/// </summary>
-		public Vec3 XYZ {get{return mXYZ;}}
+		public Vec3 XYZ { get { return mXYZ; } }
 		/// <summary>
 		/// 玩家所在维度ID
 		/// </summary>
-		public int dimensionid {get{return mdimensionid;}}
+		public int dimensionid { get { return mdimensionid; } }
 		/// <summary>
 		/// 玩家是否立足于方块/悬空
 		/// </summary>
-		public bool isstand {get{return misstand;}}
+		public bool isstand { get { return misstand; } }
+		/// <summary>
+		/// 玩家指针
+		/// </summary>
+		public IntPtr playerPtr { get { return mplayer; } }
 		protected void loadData(IntPtr s) {
 			// 此处为转换过程
 			mplayername = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 0));
 			mdimension = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 8));
-			mXYZ = (Vec3)Marshal.PtrToStructure(s+16, typeof(Vec3));
+			mXYZ = (Vec3)Marshal.PtrToStructure(s + 16, typeof(Vec3));
 			mdimensionid = Marshal.ReadInt32(s, 28);
 			misstand = Marshal.ReadByte(s, 32) == 1;
 		}
 	}
-	
+
 	/// <summary>
 	/// 玩家选择GUI表单监听<br/>
 	/// 拦截可否：是
@@ -445,29 +498,30 @@ namespace CSR
 		/// <summary>
 		/// 玩家uuid信息
 		/// </summary>
-		public string uuid {get{return muuid;}}
+		public string uuid { get { return muuid; } }
 		/// <summary>
 		/// 表单回传的选择项信息
 		/// </summary>
-		public string selected {get{return mselected;}}
+		public string selected { get { return mselected; } }
 		/// <summary>
 		/// 表单ID
 		/// </summary>
-		public int formid {get{return mformid;}}
+		public int formid { get { return mformid; } }
 		public static new FormSelectEvent getFrom(Events e)
 		{
 			var fse = createHead(e, EventType.onFormSelect, typeof(FormSelectEvent)) as FormSelectEvent;
 			if (fse == null)
 				return fse;
-			IntPtr s = e.data;	// 此处为转换过程
+			IntPtr s = e.data;  // 此处为转换过程
 			fse.loadData(s);
 			fse.muuid = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 40));
 			fse.mselected = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 48));
 			fse.mformid = Marshal.ReadInt32(s, 56);
+			fse.mplayer = Marshal.ReadIntPtr(s, 64);
 			return fse;
 		}
 	}
-	
+
 	/// <summary>
 	/// 使用物品监听<br/>
 	/// 拦截可否：是
@@ -482,19 +536,19 @@ namespace CSR
 		/// <summary>
 		/// 物品名称
 		/// </summary>
-		public string itemname {get{return mitemname;}}
+		public string itemname { get { return mitemname; } }
 		/// <summary>
 		/// 操作方块所在位置
 		/// </summary>
-		public BPos3 position {get{return mposition;}}
+		public BPos3 position { get { return mposition; } }
 		/// <summary>
 		/// 物品ID
 		/// </summary>
-		public short itemid {get{return mitemid;}}
+		public short itemid { get { return mitemid; } }
 		/// <summary>
 		/// 物品特殊值
 		/// </summary>
-		public short itemaux {get{return mitemaux;}}
+		public short itemaux { get { return mitemaux; } }
 		/// <summary>
 		/// 操作方块名称
 		/// </summary>
@@ -508,18 +562,19 @@ namespace CSR
 			var ue = createHead(e, EventType.onUseItem, typeof(UseItemEvent)) as UseItemEvent;
 			if (ue == null)
 				return null;
-			IntPtr s = e.data;	// 此处为转换过程
+			IntPtr s = e.data;  // 此处为转换过程
 			ue.loadData(s);
 			ue.mitemname = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 40));
 			ue.mposition = (BPos3)Marshal.PtrToStructure(s + 48, typeof(BPos3));
 			ue.mitemid = Marshal.ReadInt16(s, 60);
 			ue.mitemaux = Marshal.ReadInt16(s, 62);
 			ue.mblockname = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 64));
-			ue.mblockid = Marshal.ReadInt16(s, 80);
+			ue.mblockid = Marshal.ReadInt16(s, 72);
+			ue.mplayer = Marshal.ReadIntPtr(s, 80);
 			return ue;
 		}
 	}
-	
+
 	public class BlockEvent : PlayerEvent {
 		protected string mblockname;
 		protected BPos3 mposition;
@@ -527,24 +582,25 @@ namespace CSR
 		/// <summary>
 		/// 方块名称
 		/// </summary>
-		public string blockname {get{return mblockname;}}
+		public string blockname { get { return mblockname; } }
 		/// <summary>
 		/// 操作方块所在位置
 		/// </summary>
-		public BPos3 position {get{return mposition;}}
+		public BPos3 position { get { return mposition; } }
 		/// <summary>
 		/// 方块ID
 		/// </summary>
-		public short blockid {get{return mblockid;}}
+		public short blockid { get { return mblockid; } }
 		protected new void loadData(IntPtr s) {
 			base.loadData(s);
 			// 此处为转换过程
 			mblockname = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 40));
 			mposition = (BPos3)Marshal.PtrToStructure(s + 48, typeof(BPos3));
 			mblockid = Marshal.ReadInt16(s, 60);
+			mplayer = Marshal.ReadIntPtr(s, 64);
 		}
 	}
-	
+
 	/// <summary>
 	/// 放置方块监听<br/>
 	/// 拦截可否：是
@@ -559,7 +615,7 @@ namespace CSR
 			return ple;
 		}
 	}
-	
+
 	/// <summary>
 	/// 破坏方块监听<br/>
 	/// 拦截可否：是
@@ -574,7 +630,7 @@ namespace CSR
 			return ple;
 		}
 	}
-	
+
 	/// <summary>
 	/// 开箱监听<br/>
 	/// 拦截可否：是
@@ -589,7 +645,7 @@ namespace CSR
 			return ple;
 		}
 	}
-	
+
 	/// <summary>
 	/// 开桶监听<br/>
 	/// 拦截可否：否
@@ -604,7 +660,7 @@ namespace CSR
 			return ple;
 		}
 	}
-	
+
 	/// <summary>
 	/// 关箱监听<br/>
 	/// 拦截可否：否
@@ -619,7 +675,7 @@ namespace CSR
 			return ple;
 		}
 	}
-	
+
 	/// <summary>
 	/// 关桶监听<br/>
 	/// 拦截可否：否
@@ -634,7 +690,7 @@ namespace CSR
 			return ple;
 		}
 	}
-	
+
 	/// <summary>
 	/// 放入取出物品监听<br/>
 	/// 拦截可否：否
@@ -651,55 +707,56 @@ namespace CSR
 		/// <summary>
 		/// 物品名字
 		/// </summary>
-		public string itemname {get{return mitemname;}}
+		public string itemname { get { return mitemname; } }
 		/// <summary>
 		/// 方块名称
 		/// </summary>
-		public string blockname {get{return mblockname;}}
+		public string blockname { get { return mblockname; } }
 		/// <summary>
 		/// 操作方块所在位置
 		/// </summary>
-		public BPos3 position {get{return mposition;}}
+		public BPos3 position { get { return mposition; } }
 		/// <summary>
 		/// 物品数量
 		/// </summary>
-		public int itemcount {get{return mitemcount;}}
+		public int itemcount { get { return mitemcount; } }
 		/// <summary>
 		/// 操作格子位置
 		/// </summary>
-		public int slot {get{return mslot;}}
+		public int slot { get { return mslot; } }
 		/// <summary>
 		/// 物品特殊值
 		/// </summary>
-		public short itemaux {get{return mitemaux;}}
+		public short itemaux { get { return mitemaux; } }
 		/// <summary>
 		/// 方块ID
 		/// </summary>
-		public short blockid {get{return mblockid;}}
+		public short blockid { get { return mblockid; } }
 		/// <summary>
 		/// 物品ID
 		/// </summary>
-		public short itemid {get{return mitemid;}}
+		public short itemid { get { return mitemid; } }
 		public static new SetSlotEvent getFrom(Events e)
 		{
 			var le = createHead(e, EventType.onSetSlot, typeof(SetSlotEvent)) as SetSlotEvent;
 			if (le == null)
 				return null;
-			IntPtr s = e.data;	// 此处为转换过程
+			IntPtr s = e.data;  // 此处为转换过程
 			le.loadData(s);
 			le.mitemname = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 40));
 			le.mblockname = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 48));
-			le.mposition = (BPos3)Marshal.PtrToStructure(s+56, typeof(BPos3));
+			le.mposition = (BPos3)Marshal.PtrToStructure(s + 56, typeof(BPos3));
 			le.mitemcount = Marshal.ReadInt32(s, 68);
 			le.mslot = Marshal.ReadInt32(s, 72);
 			le.mitemaux = Marshal.ReadInt16(s, 76);
 			le.mblockid = Marshal.ReadInt16(s, 78);
 			le.mitemid = Marshal.ReadInt16(s, 80);
+			le.mplayer = Marshal.ReadIntPtr(s, 88);
 			return le;
 		}
-		
+
 	}
-	
+
 	/// <summary>
 	/// 切换维度监听<br/>
 	/// 拦截可否：否
@@ -711,10 +768,11 @@ namespace CSR
 			if (le == null)
 				return null;
 			le.loadData(e.data);
+			le.mplayer = Marshal.ReadIntPtr(e.data, 40);
 			return le;
 		}
 	}
-	
+
 	public class HurtEvent : BaseEvent {
 		protected string mmobname;
 		protected string mplayername;
@@ -726,46 +784,51 @@ namespace CSR
 		protected int mdimensionid;
 		protected int mdmcase;
 		protected bool misstand;
+		protected IntPtr mmob;
 		/// <summary>
 		/// 生物名称
 		/// </summary>
-		public string mobname {get{return mmobname;}}
+		public string mobname { get { return mmobname; } }
 		/// <summary>
 		/// 玩家名字（若为玩家死亡，附加此信息）
 		/// </summary>
-		public string playername {get{return mplayername;}}
+		public string playername { get { return mplayername; } }
 		/// <summary>
 		/// 玩家所在维度（附加信息）
 		/// </summary>
-		public string dimension {get{return mdimension;}}
+		public string dimension { get { return mdimension; } }
 		/// <summary>
 		/// 生物类型
 		/// </summary>
-		public string mobtype {get{return mmobtype;}}
+		public string mobtype { get { return mmobtype; } }
 		/// <summary>
 		/// 伤害源名称
 		/// </summary>
-		public string srcname {get{return msrcname;}}
+		public string srcname { get { return msrcname; } }
 		/// <summary>
 		/// 伤害源类型
 		/// </summary>
-		public string srctype {get{return msrctype;}}
+		public string srctype { get { return msrctype; } }
 		/// <summary>
 		/// 生物所在位置
 		/// </summary>
-		public Vec3 XYZ {get{return mXYZ;}}
+		public Vec3 XYZ { get { return mXYZ; } }
 		/// <summary>
 		/// 生物所处维度ID
 		/// </summary>
-		public int dimensionid {get{return mdimensionid;}}
+		public int dimensionid { get { return mdimensionid; } }
 		/// <summary>
 		/// 伤害具体原因ID
 		/// </summary>
-		public int dmcase {get{return mdmcase;}}
+		public int dmcase { get { return mdmcase; } }
 		/// <summary>
 		/// 玩家是否立足于方块/悬空（附加信息）
 		/// </summary>
-		public bool isstand {get{return misstand;}}
+		public bool isstand { get { return misstand; } }
+		/// <summary>
+		/// 生物指针
+		/// </summary>
+		public IntPtr mobPtr { get { return mmob; } }
 		protected void loadData(IntPtr s) {
 			// 此处为转换过程
 			mmobname = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 0));
@@ -774,13 +837,13 @@ namespace CSR
 			mmobtype = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 24));
 			msrcname = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 32));
 			msrctype = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 40));
-			mXYZ = (Vec3)Marshal.PtrToStructure(s+48, typeof(Vec3));
+			mXYZ = (Vec3)Marshal.PtrToStructure(s + 48, typeof(Vec3));
 			mdimensionid = Marshal.ReadInt32(s, 60);
 			mdmcase = Marshal.ReadInt32(s, 64);
 			misstand = Marshal.ReadByte(s, 68) == 1;
 		}
 	}
-	
+
 	/// <summary>
 	/// 生物死亡监听<br/>
 	/// 拦截可否：否
@@ -792,10 +855,11 @@ namespace CSR
 			if (le == null)
 				return null;
 			le.loadData(e.data);
+			le.mmob = Marshal.ReadIntPtr(e.data, 72);
 			return le;
 		}
 	}
-	
+
 	/// <summary>
 	/// 生物受伤监听<br/>
 	/// 拦截可否：是
@@ -807,15 +871,15 @@ namespace CSR
 		/// <summary>
 		/// 生物受伤类型
 		/// </summary>
-		public string dmtype {get{return mdmtype;}}
+		public string dmtype { get { return mdmtype; } }
 		/// <summary>
 		/// 生物血量
 		/// </summary>
-		public float health {get{return mhealth;}}
+		public float health { get { return mhealth; } }
 		/// <summary>
 		/// 生物受伤具体值
 		/// </summary>
-		public int dmcount {get{return mdmcount;}}
+		public int dmcount { get { return mdmcount; } }
 		public static new MobHurtEvent getFrom(Events e)
 		{
 			var le = createHead(e, EventType.onMobHurt, typeof(MobHurtEvent)) as MobHurtEvent;
@@ -826,10 +890,11 @@ namespace CSR
 			le.mdmtype = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 72));
 			le.mhealth = StrTool.itof(Marshal.ReadInt32(s, 80));
 			le.mdmcount = Marshal.ReadInt32(s, 84);
+			le.mmob = Marshal.ReadIntPtr(s, 88);
 			return le;
 		}
 	}
-	
+
 	/// <summary>
 	/// 玩家重生监听<br/>
 	/// 拦截可否：否
@@ -841,10 +906,11 @@ namespace CSR
 			if (le == null)
 				return null;
 			le.loadData(e.data);
+			le.mplayer = Marshal.ReadIntPtr(e.data, 40);
 			return le;
 		}
 	}
-	
+
 	/// <summary>
 	/// 聊天监听<br/>
 	/// 拦截可否：否
@@ -857,25 +923,25 @@ namespace CSR
 		/// <summary>
 		/// 发言人名字（可能为服务器或命令方块发言）
 		/// </summary>
-		public string playername {get{return mplayername;}}
+		public string playername { get { return mplayername; } }
 		/// <summary>
 		/// 接收者名字
 		/// </summary>
-		public string target {get{return mtarget;}}
+		public string target { get { return mtarget; } }
 		/// <summary>
 		/// 接收到的信息
 		/// </summary>
-		public string msg {get{return mmsg;}}
+		public string msg { get { return mmsg; } }
 		/// <summary>
 		/// 聊天类型
 		/// </summary>
-		public string chatstyle {get{return mchatstyle;}}
+		public string chatstyle { get { return mchatstyle; } }
 		public static new ChatEvent getFrom(Events e)
 		{
 			var le = createHead(e, EventType.onChat, typeof(ChatEvent)) as ChatEvent;
 			if (le == null)
 				return null;
-			IntPtr s = e.data;	// 此处为转换过程
+			IntPtr s = e.data;  // 此处为转换过程
 			le.mplayername = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 0));
 			le.mtarget = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 8));
 			le.mmsg = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 16));
@@ -883,7 +949,7 @@ namespace CSR
 			return le;
 		}
 	}
-	
+
 	/// <summary>
 	/// 玩家输入文本监听<br/>
 	/// 拦截可否：是
@@ -893,7 +959,7 @@ namespace CSR
 		/// <summary>
 		/// 输入的文本
 		/// </summary>
-		public string msg {get{return mmsg;}}
+		public string msg { get { return mmsg; } }
 		public static new InputTextEvent getFrom(Events e)
 		{
 			var le = createHead(e, EventType.onInputText, typeof(InputTextEvent)) as InputTextEvent;
@@ -902,10 +968,11 @@ namespace CSR
 			IntPtr s = e.data;
 			le.loadData(s);
 			le.mmsg = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 40));
+			le.mplayer = Marshal.ReadIntPtr(s, 48);
 			return le;
 		}
 	}
-	
+
 	/// <summary>
 	/// 玩家更新命令方块监听<br/>
 	/// 拦截可否：是
@@ -918,19 +985,19 @@ namespace CSR
 		/// <summary>
 		/// 将被更新的新指令
 		/// </summary>
-		public string cmd {get{return mcmd;}}
+		public string cmd { get { return mcmd; } }
 		/// <summary>
 		/// 实体类型（若被更新的是非方块，附加此信息）
 		/// </summary>
-		public string actortype {get{return mactortype;}}
+		public string actortype { get { return mactortype; } }
 		/// <summary>
 		/// 命令方块所在位置
 		/// </summary>
-		public BPos3 position {get{return mposition;}}
+		public BPos3 position { get { return mposition; } }
 		/// <summary>
 		/// 是否是方块
 		/// </summary>
-		public bool isblock {get{return misblock;}}
+		public bool isblock { get { return misblock; } }
 		public static new CommandBlockUpdateEvent getFrom(Events e)
 		{
 			var le = createHead(e, EventType.onCommandBlockUpdate, typeof(CommandBlockUpdateEvent)) as CommandBlockUpdateEvent;
@@ -940,8 +1007,9 @@ namespace CSR
 			le.loadData(s);
 			le.mcmd = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 40));
 			le.mactortype = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 48));
-			le.mposition = (BPos3)Marshal.PtrToStructure(s+56, typeof(BPos3));
+			le.mposition = (BPos3)Marshal.PtrToStructure(s + 56, typeof(BPos3));
 			le.misblock = Marshal.ReadByte(s, 68) == 1;
+			le.mplayer = Marshal.ReadIntPtr(s, 72);
 			return le;
 		}
 	}
@@ -955,7 +1023,7 @@ namespace CSR
 		/// <summary>
 		/// 玩家输入的指令
 		/// </summary>
-		public string cmd {get{return mcmd;}}
+		public string cmd { get { return mcmd; } }
 		public static new InputCommandEvent getFrom(Events e)
 		{
 			var le = createHead(e, EventType.onInputCommand, typeof(InputCommandEvent)) as InputCommandEvent;
@@ -964,10 +1032,11 @@ namespace CSR
 			IntPtr s = e.data;
 			le.loadData(s);
 			le.mcmd = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 40));
+			le.mplayer = Marshal.ReadIntPtr(s, 48);
 			return le;
 		}
 	}
-	
+
 	/// <summary>
 	/// 命令方块(矿车)执行指令监听<br/>
 	/// 拦截可否：是
@@ -983,31 +1052,31 @@ namespace CSR
 		/// <summary>
 		/// 将被执行的指令
 		/// </summary>
-		public string cmd {get{return mcmd;}}
+		public string cmd { get { return mcmd; } }
 		/// <summary>
 		/// 执行者自定义名称
 		/// </summary>
-		public string name {get{return mname;}}
+		public string name { get { return mname; } }
 		/// <summary>
 		/// 命令块所处维度
 		/// </summary>
-		public string dimension {get{return mdimension;}}
+		public string dimension { get { return mdimension; } }
 		/// <summary>
 		/// 执行者所在位置
 		/// </summary>
-		public BPos3 position {get{return mposition;}}
+		public BPos3 position { get { return mposition; } }
 		/// <summary>
 		/// 命令块所处维度ID
 		/// </summary>
-		public int dimensionid {get{return mdimensionid;}}
+		public int dimensionid { get { return mdimensionid; } }
 		/// <summary>
 		/// 命令设定的间隔时间
 		/// </summary>
-		public int tickdelay {get{return mtickdelay;}}
+		public int tickdelay { get { return mtickdelay; } }
 		/// <summary>
 		/// 执行者类型
 		/// </summary>
-		public int type {get{return mtype;}}
+		public int type { get { return mtype; } }
 		public static new BlockCmdEvent getFrom(Events e)
 		{
 			var le = createHead(e, EventType.onBlockCmd, typeof(BlockCmdEvent)) as BlockCmdEvent;
@@ -1017,14 +1086,18 @@ namespace CSR
 			le.mcmd = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 0));
 			le.mname = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 8));
 			le.mdimension = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 16));
-			le.mposition = (BPos3)Marshal.PtrToStructure(s+24, typeof(BPos3));
+			le.mposition = (BPos3)Marshal.PtrToStructure(s + 24, typeof(BPos3));
 			le.mdimensionid = Marshal.ReadInt32(s, 36);
 			le.mtickdelay = Marshal.ReadInt32(s, 40);
 			le.mtype = Marshal.ReadInt32(s, 44);
 			return le;
 		}
 	}
-	
+
+	/// <summary>
+	/// NPC执行指令监听<br/>
+	/// 拦截可否：是
+	/// </summary>
 	public class NpcCmdEvent : BaseEvent {
 		protected string mnpcname;
 		protected string mentity;
@@ -1034,38 +1107,43 @@ namespace CSR
 		protected int mactionid;
 		protected int mentityid;
 		protected int mdimensionid;
+		protected IntPtr mnpc;
 		/// <summary>
 		/// NPC名字
 		/// </summary>
-		public string npcname {get{return mnpcname;}}
+		public string npcname { get { return mnpcname; } }
 		/// <summary>
 		/// NPC实体标识名
 		/// </summary>
-		public string entity {get{return mentity;}}
+		public string entity { get { return mentity; } }
 		/// <summary>
 		/// NPC所处维度
 		/// </summary>
-		public string dimension {get{return mdimension;}}
+		public string dimension { get { return mdimension; } }
 		/// <summary>
 		/// 指令列表
 		/// </summary>
-		public string actions {get{return mactions;}}
+		public string actions { get { return mactions; } }
 		/// <summary>
 		/// NPC所在位置
 		/// </summary>
-		public Vec3 position {get{return mposition;}}
+		public Vec3 position { get { return mposition; } }
 		/// <summary>
 		/// 选择项
 		/// </summary>
-		public int actionid {get{return mactionid;}}
+		public int actionid { get { return mactionid; } }
 		/// <summary>
 		/// NPC实体标识ID
 		/// </summary>
-		public int entityid {get{return mentityid;}}
+		public int entityid { get { return mentityid; } }
 		/// <summary>
 		/// NPC所处维度ID
 		/// </summary>
-		public int dimensionid {get{return mdimensionid;}}
+		public int dimensionid { get { return mdimensionid; } }
+		/// <summary>
+		/// NPC指针
+		/// </summary>
+		public IntPtr npcPtr { get { return mnpc; } }
 		public static new NpcCmdEvent getFrom(Events e)
 		{
 			var le = createHead(e, EventType.onNpcCmd, typeof(NpcCmdEvent)) as NpcCmdEvent;
@@ -1076,14 +1154,15 @@ namespace CSR
 			le.mentity = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 8));
 			le.mdimension = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 16));
 			le.mactions = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 24));
-			le.mposition = (Vec3)Marshal.PtrToStructure(s+32, typeof(Vec3));
+			le.mposition = (Vec3)Marshal.PtrToStructure(s + 32, typeof(Vec3));
 			le.mactionid = Marshal.ReadInt32(s, 44);
 			le.mentityid = Marshal.ReadInt32(s, 48);
 			le.mdimensionid = Marshal.ReadInt32(s, 52);
+			le.mnpc = Marshal.ReadIntPtr(s, 56);
 			return le;
 		}
 	}
-	
+
 	/// <summary>
 	/// 加载名字监听<br/>
 	/// 拦截可否：否
@@ -1093,36 +1172,47 @@ namespace CSR
 		protected string muuid;
 		protected string mxuid;
 		protected string mability;
+		protected IntPtr mplayer;
 		/// <summary>
 		/// 玩家名字
 		/// </summary>
-		public string playername {get{return mplayername;}}
+		public string playername { get { return mplayername; } }
 		/// <summary>
 		/// 玩家uuid字符串
 		/// </summary>
-		public string uuid {get{return muuid;}}
+		public string uuid { get { return muuid; } }
 		/// <summary>
 		/// 玩家xuid字符串
 		/// </summary>
-		public string xuid {get{return mxuid;}}
+		public string xuid { get { return mxuid; } }
 		/// <summary>
 		/// 玩家能力值列表（可选，商业版可用）
 		/// </summary>
-		public string ability {get{return mability;}}
+		public string ability { get { return mability; } }
+		/// <summary>
+		/// 玩家指针
+		/// </summary>
+		public IntPtr playerPtr { get { return mplayer; } }
+		protected void loadData(IntPtr s)
+		{
+			// 此处为转换过程
+			mplayername = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 0));
+			muuid = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 8));
+			mxuid = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 16));
+			mability = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 24));
+			mplayer = Marshal.ReadIntPtr(s, 32);
+		}
 		public static new LoadNameEvent getFrom(Events e)
 		{
 			var le = createHead(e, EventType.onLoadName, typeof(LoadNameEvent)) as LoadNameEvent;
 			if (le == null)
 				return null;
 			IntPtr s = e.data; // 此处为转换过程
-			le.mplayername = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 0));
-			le.muuid = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 8));
-			le.mxuid = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 16));
-			le.mability = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 24));
+			le.loadData(s);
 			return le;
 		}
 	}
-	
+
 	/// <summary>
 	/// 离开游戏监听<br/>
 	/// 拦截可否：否
@@ -1133,15 +1223,16 @@ namespace CSR
 			var le = createHead(e, EventType.onPlayerLeft, typeof(PlayerLeftEvent)) as PlayerLeftEvent;
 			if (le == null)
 				return null;
-			IntPtr s = e.data;	// 此处为转换过程
-			le.mplayername = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 0));
-			le.muuid = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 8));
-			le.mxuid = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 16));
-			le.mability = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 24));
+			IntPtr s = e.data;  // 此处为转换过程
+			le.loadData(s);
 			return le;
 		}
 	}
-	
+
+	/// <summary>
+	/// 玩家移动监听<br/>
+	/// 拦截可否：否
+	/// </summary>
 	public class MoveEvent : PlayerEvent {
 		public static new MoveEvent getFrom(Events e)
 		{
@@ -1149,10 +1240,11 @@ namespace CSR
 			if (ate == null)
 				return null;
 			ate.loadData(e.data);
+			ate.mplayer = Marshal.ReadIntPtr(e.data, 40);
 			return ate;
 		}
 	}
-	
+
 	/// <summary>
 	/// 玩家攻击监听<br/>
 	/// 拦截可否：是
@@ -1161,32 +1253,39 @@ namespace CSR
 		protected string mactorname;
 		protected string mactortype;
 		protected Vec3 mactorpos;
+		protected IntPtr mattacked;
 		/// <summary>
 		/// 被攻击实体名称
 		/// </summary>
-		public string actorname {get{return mactorname;}}
+		public string actorname { get { return mactorname; } }
 		/// <summary>
 		/// 被攻击实体类型
 		/// </summary>
-		public string actortype {get{return mactortype;}}
+		public string actortype { get { return mactortype; } }
 		/// <summary>
 		/// 被攻击实体所处位置
 		/// </summary>
-		public Vec3 actorpos {get{return mactorpos;}}
+		public Vec3 actorpos { get { return mactorpos; } }
+		/// <summary>
+		/// 被击者实体指针
+		/// </summary>
+		public IntPtr attackedentityPtr { get { return mattacked; } }
 		public static new AttackEvent getFrom(Events e)
 		{
 			var ate = createHead(e, EventType.onAttack, typeof(AttackEvent)) as AttackEvent;
 			if (ate == null)
 				return null;
-			IntPtr s = e.data;	// 此处为转换过程
+			IntPtr s = e.data;  // 此处为转换过程
 			ate.loadData(s);
 			ate.mactorname = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 40));
 			ate.mactortype = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 48));
 			ate.mactorpos = (Vec3)Marshal.PtrToStructure(s + 56, typeof(Vec3));
+			ate.mplayer = Marshal.ReadIntPtr(s, 72);
+			ate.mattacked = Marshal.ReadIntPtr(s, 80);
 			return ate;
 		}
 	}
-		
+
 	/// <summary>
 	/// 世界范围爆炸监听<br/>
 	/// 拦截可否：是
@@ -1203,41 +1302,41 @@ namespace CSR
 		/// <summary>
 		/// 爆炸者实体标识名（可能为空）
 		/// </summary>
-		public string entity {get{return mentity;}}
+		public string entity { get { return mentity; } }
 		/// <summary>
 		/// 爆炸方块名（可能为空）
 		/// </summary>
-		public string blockname {get{return mblockname;}}
+		public string blockname { get { return mblockname; } }
 		/// <summary>
 		/// 爆炸者所处维度
 		/// </summary>
-		public string dimension {get{return mdimension;}}
+		public string dimension { get { return mdimension; } }
 		/// <summary>
 		/// 爆炸点所在位置
 		/// </summary>
-		public Vec3 position {get{return mposition;}}
+		public Vec3 position { get { return mposition; } }
 		/// <summary>
 		/// 爆炸者实体标识ID
 		/// </summary>
-		public int entityid {get{return mentityid;}}
+		public int entityid { get { return mentityid; } }
 		/// <summary>
 		/// 爆炸者所处维度ID
 		/// </summary>
-		public int dimensionid {get{return mdimensionid;}}
+		public int dimensionid { get { return mdimensionid; } }
 		/// <summary>
 		/// 爆炸强度
 		/// </summary>
-		public float explodepower {get{return mexplodepower;}}
+		public float explodepower { get { return mexplodepower; } }
 		/// <summary>
 		/// 爆炸方块ID
 		/// </summary>
-		public float blockid {get{return mblockid;}}
+		public float blockid { get { return mblockid; } }
 		public static new LevelExplodeEvent getFrom(Events e)
 		{
 			var le = createHead(e, EventType.onLevelExplode, typeof(LevelExplodeEvent)) as LevelExplodeEvent;
 			if (le == null)
 				return null;
-			IntPtr s = e.data;	// 此处为转换过程
+			IntPtr s = e.data;  // 此处为转换过程
 			le.mentity = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 0));
 			le.mblockname = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 8));
 			le.mdimension = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 16));
@@ -1247,6 +1346,54 @@ namespace CSR
 			le.mexplodepower = StrTool.itof(Marshal.ReadInt32(s, 44));
 			le.mblockid = Marshal.ReadInt16(s, 48);
 			return le;
+		}
+	}
+
+	/// <summary>
+	/// 玩家切换护甲监听（不含主副手）<br/>
+	/// 拦截可否：否
+	/// </summary>
+	public class EquippedArmorEvent : PlayerEvent {
+		protected string mitemname;
+		protected int mitemcount;
+		protected int mslot;
+		protected short mitemaux;
+		protected short mitemid;
+		/// <summary>
+		/// 物品名字
+		/// </summary>
+		public string itemname { get { return mitemname; } }
+		/// <summary>
+		/// 物品数量
+		/// </summary>
+		public int itemcount { get { return mitemcount; } }
+		/// <summary>
+		/// 操作格子位置
+		/// </summary>
+		public int slot { get { return mslot; } }
+		/// <summary>
+		/// 物品特殊值
+		/// </summary>
+		public short itemaux { get { return mitemaux; } }
+		/// <summary>
+		/// 物品ID
+		/// </summary>
+		public short itemid { get { return mitemid; } }
+
+		public static new EquippedArmorEvent getFrom(Events e)
+        {
+			var qae = createHead(e, EventType.onEquippedArmor, typeof(EquippedArmorEvent)) as EquippedArmorEvent;
+			if (qae == null)
+				return null;
+			IntPtr s = e.data;  // 此处为转换过程
+			qae.loadData(s);
+			qae.mitemname = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 40));
+			qae.mitemcount = Marshal.ReadInt32(s, 48);
+			qae.mslot = Marshal.ReadInt32(s, 52);
+			qae.mitemaux = Marshal.ReadInt16(s, 56);
+			qae.mitemid = Marshal.ReadInt16(s, 58);
+			qae.mplayer = Marshal.ReadIntPtr(s, 64);
+			return qae;
 		}
 	}
 }

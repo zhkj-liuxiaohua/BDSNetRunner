@@ -133,7 +133,7 @@ namespace CSR
 		private delegate bool RENAMEBYUUIDFUNC(string uuid, string newName);
 		private RENAMEBYUUIDFUNC creNameByUuid, csetPlayerAbilities, csetPlayerTempAttributes,
 			csetPlayerMaxAttributes, csetPlayerItems, caddPlayerItemEx, csetPlayerEffects,
-			ctalkAs, cruncmdAs, csetPlayerPermissionAndGametype;
+			ctalkAs, cruncmdAs, cdisconnectClient, csetPlayerPermissionAndGametype;
 		private delegate Std_String GETPLAYERABILITIESFUNC(string uuid);
 		private GETPLAYERABILITIESFUNC cgetPlayerAbilities, cgetPlayerAttributes, cgetPlayerMaxAttributes,
 			cgetPlayerItems, cgetPlayerSelectedItem, cgetPlayerEffects, cselectPlayer, cgetPlayerPermissionAndGametype;
@@ -158,10 +158,10 @@ namespace CSR
 		private delegate int GETSCOREBOARDVALUEFUNC(string uuid, string objname);
 		private GETSCOREBOARDVALUEFUNC cgetscoreboardValue;
 		private delegate IntPtr GETEXTRAAPI(string apiname);
-		GETEXTRAAPI cgetExtraAPI;
-		
+		private GETEXTRAAPI cgetExtraAPI;
+
 		// 转换附加函数指针
-        private T ConvertExtraFunc<T>(string apiname)  where T : Delegate
+		private T ConvertExtraFunc<T>(string apiname)  where T : Delegate
 		{
 			if (cgetExtraAPI != null) {
 				IntPtr f = cgetExtraAPI(apiname);
@@ -174,7 +174,26 @@ namespace CSR
 			Console.WriteLine("Get ExtraApi {0} failed.", apiname);
             return null;
         }
-		
+
+		private delegate IntPtr MCCOMPONENTAPI(string apiname);
+		private MCCOMPONENTAPI cmcComponentAPI;
+		// 获取组件相关API
+		public T ConvertComponentFunc<T>(string apiname) where T : Delegate
+        {
+			if (cmcComponentAPI != null)
+			{
+				IntPtr f = cmcComponentAPI(apiname);
+				if (f != IntPtr.Zero)
+				{
+					return (T)Marshal.GetDelegateForFunctionPointer(f, typeof(T));
+					//若.net framework版本高于4.5.1可用以下替换以上
+					//return Marshal.GetDelegateForFunctionPointer<T>(f);
+				}
+			}
+			Console.WriteLine("Get ComponentApi {0} failed.", apiname);
+			return null;
+		}
+
 		// 初始化所有api函数
 		void initApis()
 		{
@@ -190,9 +209,11 @@ namespace CSR
 			clogout = Invoke<LOGOUTFUNC>("logout");
 			cgetOnLinePlayers = Invoke<GETONLINEPLAYERSFUNC>("getOnLinePlayers");
 			cgetExtraAPI = Invoke<GETEXTRAAPI>("getExtraAPI");
+			cmcComponentAPI = Invoke<MCCOMPONENTAPI>("mcComponentAPI");
 			creNameByUuid = Invoke<RENAMEBYUUIDFUNC>("reNameByUuid");
 			ctalkAs = Invoke<RENAMEBYUUIDFUNC>("talkAs");
 			cruncmdAs = Invoke<RENAMEBYUUIDFUNC>("runcmdAs");
+			cdisconnectClient = Invoke<RENAMEBYUUIDFUNC>("disconnectClient");
 			csendSimpleForm = Invoke<SENDSIMPLEFORMFUNC>("sendSimpleForm");
 			csendModalForm = Invoke<SENDMODALFORMFUNC>("sendModalForm");
 			csendCustomForm = Invoke<SENDCUSTOMFORMFUNC>("sendCustomForm");
@@ -686,7 +707,17 @@ namespace CSR
 		public bool runcmdAs(string uuid, string cmd) {
 			return (cruncmdAs != null) && cruncmdAs(uuid, cmd);
 		}
-		
+
+		/// <summary>
+		/// 断开一个玩家的连接
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <param name="tips">断开提示（设空值则为默认值）</param>
+		/// <returns></returns>
+		public bool disconnectClient(string uuid, string tips) {
+			return (cdisconnectClient != null) && cdisconnectClient(uuid, tips);
+		}
+
 		/// <summary>
 		/// 向指定的玩家发送一个简单表单
 		/// </summary>
