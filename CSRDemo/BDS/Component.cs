@@ -4,6 +4,39 @@ using System.Runtime.InteropServices;
 
 namespace CSR
 {
+    public enum ActorDamageCause : int
+    {
+        Override = 0x0,
+        Contact = 0x1,
+        EntityAttack = 0x2,
+        Projectile_0 = 0x3,
+        Suffocation = 0x4,
+        Fall_0 = 0x5,
+        Fire_1 = 0x6,
+        FireTick = 0x7,
+        Lava_2 = 0x8,
+        Drowning = 0x9,
+        BlockExplosion = 0x0A,
+        EntityExplosion = 0x0B,
+        Void = 0x0C,
+        Suicide = 0x0D,
+        Magic = 0x0E,
+        Wither = 0x0F,
+        Starve = 0x10,
+        Anvil_1 = 0x11,
+        Thorns_0 = 0x12,
+        FallingBlock_0 = 0x13,
+        Piston_0 = 0x14,
+        FlyIntoWall = 0x15,
+        Magma = 0x16,
+        Fireworks_0 = 0x17,
+        Lightning_0 = 0x18,
+        Charging = 0x19,
+        Temperature = 0x1A,
+        All_0 = 0x1F,
+        None_18 = -0x01
+    }
+
     /// <summary>
     /// 实体类
     /// </summary>
@@ -28,6 +61,7 @@ namespace CSR
         const string ENTITY_GET_TYPEID = "entity.get_typeid";
         const string ENTITY_GET_UNIQUEID = "entity.get_uniqueid";
         const string ENTITY_REMOVE = "entity.remove";
+        const string ENTITY_HURT = "entity.hurt";
         const string LEVEL_GETFROM_UNIQUEID = "level.getfrom_uniqueid";
         const string LEVEL_GETSFROM_AABB = "level.getsfrom_aabb";
 
@@ -37,6 +71,7 @@ namespace CSR
         protected delegate bool ASETNAME(IntPtr p, string n, bool a);
         protected delegate ulong AGETUNIQUEID(IntPtr p);
         protected delegate bool AREMOVE(IntPtr p);
+        protected delegate bool AHURT(IntPtr p, IntPtr sp, ActorDamageCause cause, int count, bool knock, bool ignite);
         protected delegate IntPtr AGETFROMUNIQUEID(ulong i);
         protected delegate IntPtr AGETSFROMAABB(int did, float x1, float y1, float z1, float x2, float y2, float z2);
         static protected AGET egetArmorContainer;
@@ -58,6 +93,7 @@ namespace CSR
         static protected AGETDIMENSIONID egetTypeId;
         static protected AGETUNIQUEID egetUniqueId;
         static protected AREMOVE eremove;
+        static protected AHURT ehurt;
         static protected AGETFROMUNIQUEID egetFromUniqueId;
         static protected AGETSFROMAABB egetsFromAABB;
         static bool entityApiInited = false;
@@ -87,6 +123,7 @@ namespace CSR
                     egetTypeId = api.ConvertComponentFunc<AGETDIMENSIONID>(ENTITY_GET_TYPEID);
                     egetUniqueId = api.ConvertComponentFunc<AGETUNIQUEID>(ENTITY_GET_UNIQUEID);
                     eremove = api.ConvertComponentFunc<AREMOVE>(ENTITY_REMOVE);
+                    ehurt = api.ConvertComponentFunc<AHURT>(ENTITY_HURT);
                     egetFromUniqueId = api.ConvertComponentFunc<AGETFROMUNIQUEID>(LEVEL_GETFROM_UNIQUEID);
                     egetsFromAABB = api.ConvertComponentFunc<AGETSFROMAABB>(LEVEL_GETSFROM_AABB);
                     entityApiInited = true;
@@ -329,6 +366,23 @@ namespace CSR
                     ptr = IntPtr.Zero;
                     return ret;
                 }
+            }
+            return false;
+        }
+        /// <summary>
+        /// 模拟产生一个由源实体发出的伤害
+        /// </summary>
+        /// <param name="sourceActor">源实体</param>
+        /// <param name="cause">伤害类型</param>
+        /// <param name="count">具体伤害数值</param>
+        /// <param name="knock">是否产生击退</param>
+        /// <param name="ignite">是否产生火焰附加</param>
+        /// <returns>是否伤害成功</returns>
+        public bool hurt(IntPtr sourceActor, ActorDamageCause cause, int count, bool knock, bool ignite)
+        {
+            if (ptr != null && ptr != IntPtr.Zero)
+            {
+                return ehurt != null && ehurt(ptr, sourceActor, cause, count, knock, ignite);
             }
             return false;
         }

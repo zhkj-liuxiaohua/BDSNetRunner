@@ -118,7 +118,22 @@ namespace CSRDemo
 								cse.remove();
                             }
                         }
-                    }
+                    } else if (fe.selected == "4")
+                    {
+						var el = CsActor.getsFromAABB(api, fe.dimensionid, fe.XYZ.x - 16, fe.XYZ.y - 16, fe.XYZ.z - 16,
+							fe.XYZ.x + 16, fe.XYZ.y + 16, fe.XYZ.z + 16);
+						if (el != null && el.Count > 0)
+						{
+							Console.WriteLine("查询并模拟攻击玩家附近16格内所有实体：");
+							foreach (IntPtr eptr in el)
+							{
+								var cse = new CsActor(api, eptr);
+								Console.WriteLine("TypeId={0},UniqueId={1},name={2}", cse.TypeId, cse.UniqueId, cse.getName());
+								// 测试实体模拟受攻击伤害，伤害值为10
+								cse.hurt(fe.playerPtr/*IntPtr.Zero*/, ActorDamageCause.EntityAttack, 10, false, false);
+							}
+						}
+					}
 				}
                 else{
                     Console.WriteLine("玩家 {0} 取消了表单 id={1}", fe.playername, fe.formid);
@@ -345,35 +360,16 @@ namespace CSRDemo
 					string str = "玩家 " + ae.playername + " 在 (" + ae.XYZ.x.ToString("F2") + "," +
 						ae.XYZ.y.ToString("F2") + "," + ae.XYZ.z.ToString("F2") + ") 处攻击了 " + ae.actortype + " 。";
 					Console.WriteLine(str);
-					//Console.WriteLine("list={0}", api.getOnLinePlayers());
-					string ols = api.getOnLinePlayers();
-					if (!string.IsNullOrEmpty(ols))
-                    {
-						JavaScriptSerializer ser = new JavaScriptSerializer();
-						ArrayList al = ser.Deserialize<ArrayList>(ols);
-						object uuid = null;
-						foreach (Dictionary<string, object> p in al)
-						{
-							object name;
-							if (p.TryGetValue("playername", out name))
-							{
-								if ((string)name == ae.playername)
-								{
-									// 找到
-									p.TryGetValue("uuid", out uuid);
-									break;
-								}
-							}
-						}
-						if (uuid != null)
-						{
-							tformid = api.sendSimpleForm((string)uuid,
+					//Console.WriteLine("list={0}", api.getOnLinePlayers())
+					CsPlayer p = new CsPlayer(api, ae.playerPtr);
+					var uuid = p.Uuid;
+					if (uuid != null)
+					{
+						tformid = api.sendSimpleForm((string)uuid,
 											   "测试选项",
 											   "test choose:",
-											   "[\"基本组件\",\"物品栏组件\",\"组件设置\", \"范围检测并清理\"]");
-							Console.WriteLine("创建需自行保管的表单，id={0}", tformid);
-							//api.transferserver((string)uuid, "www.xiafox.com", 19132);
-						}
+											   "[\"基本组件\",\"物品栏组件\",\"组件设置\", \"范围检测并清理\",\"范围检测并攻击\"]");
+						Console.WriteLine("创建需自行保管的表单，id={0}", tformid);
 					}
 				} else {
 					Console.WriteLine("Event convent fail.");

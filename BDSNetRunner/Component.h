@@ -253,6 +253,41 @@ enum class ActorType : signed {
 	VillagerV2 = 0x1000373
 };
 
+enum class ActorDamageCause : int {
+	Override = 0x0,
+	Contact = 0x1,
+	EntityAttack = 0x2,
+	Projectile_0 = 0x3,
+	Suffocation = 0x4,
+	Fall_0 = 0x5,
+	Fire_1 = 0x6,
+	FireTick = 0x7,
+	Lava_2 = 0x8,
+	Drowning = 0x9,
+	BlockExplosion = 0x0A,
+	EntityExplosion = 0x0B,
+	Void = 0x0C,
+	Suicide = 0x0D,
+	Magic = 0x0E,
+	Wither = 0x0F,
+	Starve = 0x10,
+	Anvil_1 = 0x11,
+	Thorns_0 = 0x12,
+	FallingBlock_0 = 0x13,
+	Piston_0 = 0x14,
+	FlyIntoWall = 0x15,
+	Magma = 0x16,
+	Fireworks_0 = 0x17,
+	Lightning_0 = 0x18,
+	Charging = 0x19,
+	Temperature = 0x1A,
+	All_0 = 0x1F,
+	None_18 = -0x01,
+};
+
+struct ActorDamageByActorSource {
+	char fill[0x50];		// IDA ActorDamageByActorSource::clone
+};
 
 // 各类组件获取和设置关键字
 struct MCMETHOD {
@@ -275,6 +310,7 @@ struct MCMETHOD {
 	const std::string ENTITY_GET_TYPEID = "entity.get_typeid";
 	const std::string ENTITY_GET_UNIQUEID = "entity.get_uniqueid";
 	const std::string ENTITY_REMOVE = "entity.remove";
+	const std::string ENTITY_HURT = "entity.hurt";
 	const std::string LEVEL_GETFROM_UNIQUEID = "level.getfrom_uniqueid";
 	const std::string LEVEL_GETSFROM_AABB = "level.getsfrom_aabb";
 
