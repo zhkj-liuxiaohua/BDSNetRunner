@@ -286,9 +286,9 @@ namespace CSRDemo
 				var e = BaseEvent.getFrom(x) as EquippedArmorEvent;
 				if (e != null)
 				{
-					Console.WriteLine("玩家 {0} 已于 {1} 的 ({2:F2},{3:F2},{4:F2}) 处切换第 {5} 格的装备为 {6} 。",
+					Console.WriteLine("玩家 {0} 已于 {1} 的 ({2:F2},{3:F2},{4:F2}) 处切换 {5} 第 {6} 格的装备为 {7} 。",
 						e.playername, e.dimension, e.XYZ.x, e.XYZ.y, e.XYZ.z,
-						e.slot, e.itemname);
+						e.slottype == 0?"身体装备的":"主副手的", e.slot, e.itemname);
 				}
 				return true;
 			});

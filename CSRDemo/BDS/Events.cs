@@ -1334,7 +1334,7 @@ namespace CSR
 	}
 
 	/// <summary>
-	/// 玩家切换护甲监听（不含主副手）<br/>
+	/// 玩家切换护甲监听（含主副手）<br/>
 	/// 拦截可否：否
 	/// </summary>
 	public class EquippedArmorEvent : PlayerEvent {
@@ -1343,6 +1343,7 @@ namespace CSR
 		protected int mslot;
 		protected short mitemaux;
 		protected short mitemid;
+		protected short mslottype;
 		/// <summary>
 		/// 物品名字
 		/// </summary>
@@ -1363,6 +1364,10 @@ namespace CSR
 		/// 物品ID
 		/// </summary>
 		public short itemid { get { return mitemid; } }
+		/// <summary>
+		/// 装备切换类型（0 - 护甲类，1 - 主副手类，其中主副手的格子位置不同）
+		/// </summary>
+		public short slottype { get { return mslottype; } }
 
 		public static new EquippedArmorEvent getFrom(Events e)
         {
@@ -1376,6 +1381,7 @@ namespace CSR
 			qae.mslot = Marshal.ReadInt32(s, 52);
 			qae.mitemaux = Marshal.ReadInt16(s, 56);
 			qae.mitemid = Marshal.ReadInt16(s, 58);
+			qae.mslottype = Marshal.ReadInt16(s, 60);
 			qae.mplayer = Marshal.ReadIntPtr(s, 64);
 			return qae;
 		}

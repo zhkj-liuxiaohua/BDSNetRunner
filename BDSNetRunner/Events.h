@@ -557,6 +557,7 @@ struct EquippedArmorEvent : PlayerEvent {
 	int slot;			// 操作格子位置
 	short itemaux;		// 物品特殊值
 	short itemid;		// 物品ID
+	short slottype;		// 切换的装备类型，0 - 护甲类，1 - 主副手
 	void* pplayer;		// 附加组件，玩家指针
 public:
 	EquippedArmorEvent() {

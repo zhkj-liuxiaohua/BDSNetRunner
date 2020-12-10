@@ -64,6 +64,15 @@ namespace CSRDemo
 		// 初始化hook
 		public static void init(MCCSAPI api) {
 			mcapi = api;
+			// 改写原始代码数据
+			if (api.VERSION == "1.16.100.4")
+            {
+				byte[] jmp_expplaycheck = { 0xeb, 0x07, 0xF6, 0x00, 0x04, 0xeb, 0x00, 0xeb, 0x00 };		// IDA jmp short + 7
+				if (api.writeHardMemory(0x0AC36F9, jmp_expplaycheck, 9))
+					Console.WriteLine("[C# hack] JS 引擎实验性验证已跳过。");
+				else
+					Console.WriteLine("[C# hack] Some hardcode err excption.");
+            }
 			// 初始化RVA，或可远程获取
 			ArrayList al = new ArrayList(new int[]{0x00B9D4C0, 0x00429850, 0x004ECFD0});
 			RVAs["1.16.1.2"] = al;

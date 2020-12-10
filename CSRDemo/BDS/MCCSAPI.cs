@@ -80,6 +80,8 @@ namespace CSR
 		private CSUNHOOKFUNC ccsunhook;
 		private delegate IntPtr DLSYMFUNC(int rva);
 		private DLSYMFUNC cdlsym;
+		private delegate bool READHARDMEMORY(int rva, byte[] odata, int size);
+		private READHARDMEMORY creadHardMemory, cwriteHardMemory;
 		private delegate void SETSHAREPTRFUNC(string key, IntPtr sdata);
 		private SETSHAREPTRFUNC csetshareptr;
 		private delegate IntPtr GETSHAREPTRFUNC(string key);
@@ -224,9 +226,11 @@ namespace CSR
 			ccshook = Invoke<CSHOOKFUNC>("cshook");
 			ccsunhook = Invoke<CSUNHOOKFUNC>("csunhook");
 			cdlsym = Invoke<DLSYMFUNC>("dlsym");
+			creadHardMemory = Invoke<READHARDMEMORY>("readHardMemory");
+			cwriteHardMemory = Invoke<READHARDMEMORY>("writeHardMemory");
 
-            #region 非社区部分内容
-            if (COMMERCIAL) {
+			#region 非社区部分内容
+			if (COMMERCIAL) {
 				cgetStructure = ConvertExtraFunc<GETSTRUCTUREFUNC>("getStructure");
 				csetStructure = ConvertExtraFunc<SETSTRUCTUREFUNC>("setStructure");
 				cgetPlayerAbilities = ConvertExtraFunc<GETPLAYERABILITIESFUNC>("getPlayerAbilities");
@@ -861,6 +865,32 @@ namespace CSR
 		public IntPtr dlsym(int rva) {
 			return cdlsym != null ? cdlsym(rva) :
 				IntPtr.Zero;
+		}
+
+		/// <summary>
+		/// 读特定段内存硬编码
+		/// </summary>
+		/// <param name="rva">函数片段起始位置相对地址</param>
+		/// <param name="size">内存长度</param>
+		/// <returns></returns>
+		public byte[] readHardMemory(int rva, int size) {
+			byte[] x = new byte[size];
+			if (creadHardMemory != null)
+				if (creadHardMemory(rva, x, size))
+					return x;
+			return null;
+        }
+
+		/// <summary>
+		/// 写特定段内存硬编码
+		/// </summary>
+		/// <param name="rva">函数片段起始位置相对地址</param>
+		/// <param name="data">新数据内容</param>
+		/// <param name="size">内存长度</param>
+		/// <returns></returns>
+		public bool writeHardMemory(int rva, byte[] data, int size)
+		{
+			return (cwriteHardMemory != null) && cwriteHardMemory(rva, data, size);
 		}
 	}
 }
