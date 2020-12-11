@@ -337,7 +337,8 @@ namespace CSRDemo
 				Console.WriteLine("[CS] type = {0}, mode = {1}, result= {2}", x.type, x.mode, x.result);
 				var ue = BaseEvent.getFrom(x) as LoadNameEvent;
 				if (ue != null) {
-					Console.WriteLine("玩家 {0} 加入了游戏，xuid={1}", ue.playername, ue.xuid);
+					CsPlayer p = new CsPlayer(api, ue.playerPtr);
+					Console.WriteLine("玩家 {0} 加入了游戏，xuid={1}, IP={2}", ue.playername, ue.xuid, p.IpPort);
 				}
 				return true;
 			});

@@ -577,8 +577,11 @@ namespace CSR
     {
         const string PLAYER_GET_HOTBAR_CONTAINER = "player.get_hotbar_container";
         const string PLAYER_GET_UUID = "player.get_uuid";
+        const string PLAYER_GET_IPPORT = "player.get_ipport";
+
         static AGET pgetHotbarContainer;
         static AGET pgetUuid;
+        static AGET pgetIPPort;
         static bool playerApiInited = false;
 
         static private bool initPlayerAPI(MCCSAPI api)
@@ -589,6 +592,7 @@ namespace CSR
                 {
                     pgetHotbarContainer = api.ConvertComponentFunc<AGET>(PLAYER_GET_HOTBAR_CONTAINER);
                     pgetUuid = api.ConvertComponentFunc<AGET>(PLAYER_GET_UUID);
+                    pgetIPPort = api.ConvertComponentFunc<AGET>(PLAYER_GET_IPPORT);
                     playerApiInited = true;
                 }
                 else
@@ -623,6 +627,18 @@ namespace CSR
                 if (ptr != null && ptr != IntPtr.Zero)
                 {
                     Std_String s = pgetUuid(ptr);
+                    return StrTool.c_str(s);
+                }
+                return null;
+            } }
+        /// <summary>
+        /// 获取玩家IP和端口
+        /// </summary>
+        public string IpPort { get
+            {
+                if (ptr != null && ptr != IntPtr.Zero)
+                {
+                    Std_String s = pgetIPPort(ptr);
                     return StrTool.c_str(s);
                 }
                 return null;
