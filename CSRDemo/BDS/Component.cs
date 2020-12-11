@@ -9,12 +9,12 @@ namespace CSR
         Override = 0x0,
         Contact = 0x1,
         EntityAttack = 0x2,
-        Projectile_0 = 0x3,
+        Projectile = 0x3,
         Suffocation = 0x4,
-        Fall_0 = 0x5,
-        Fire_1 = 0x6,
+        Fall = 0x5,
+        Fire = 0x6,
         FireTick = 0x7,
-        Lava_2 = 0x8,
+        Lava = 0x8,
         Drowning = 0x9,
         BlockExplosion = 0x0A,
         EntityExplosion = 0x0B,
@@ -23,18 +23,18 @@ namespace CSR
         Magic = 0x0E,
         Wither = 0x0F,
         Starve = 0x10,
-        Anvil_1 = 0x11,
-        Thorns_0 = 0x12,
-        FallingBlock_0 = 0x13,
-        Piston_0 = 0x14,
+        Anvil = 0x11,
+        Thorns = 0x12,
+        FallingBlock = 0x13,
+        Piston = 0x14,
         FlyIntoWall = 0x15,
         Magma = 0x16,
-        Fireworks_0 = 0x17,
-        Lightning_0 = 0x18,
+        Fireworks = 0x17,
+        Lightning = 0x18,
         Charging = 0x19,
         Temperature = 0x1A,
-        All_0 = 0x1F,
-        None_18 = -0x01
+        All = 0x1F,
+        None = -0x01
     }
 
     /// <summary>
@@ -62,6 +62,16 @@ namespace CSR
         const string ENTITY_GET_UNIQUEID = "entity.get_uniqueid";
         const string ENTITY_REMOVE = "entity.remove";
         const string ENTITY_HURT = "entity.hurt";
+        #region 非社区内容
+        const string ENTITY_GET_ABILITIES = "entity.get_abilities";
+        const string ENTITY_SET_ABILITIES = "entity.set_abilities";
+        const string ENTITY_GET_ATTRIBUTES = "entity.get_attributes";
+        const string ENTITY_SET_ATTRIBUTES = "entity.set_attributes";
+        const string ENTITY_GET_MAXATTRIBUTES = "entity.get_maxattributes";
+        const string ENTITY_SET_MAXATTRIBUTES = "entity.set_maxattributes";
+        const string ENTITY_GET_EFFECTS = "entity.get_effects";
+        const string ENTITY_SET_EFFECTS = "entity.set_effects";
+        #endregion
         const string LEVEL_GETFROM_UNIQUEID = "level.getfrom_uniqueid";
         const string LEVEL_GETSFROM_AABB = "level.getsfrom_aabb";
 
@@ -94,6 +104,16 @@ namespace CSR
         static protected AGETUNIQUEID egetUniqueId;
         static protected AREMOVE eremove;
         static protected AHURT ehurt;
+        #region 非社区内容
+        static protected AGET egetAbilities;
+        static protected ASET esetAbilities;
+        static protected AGET egetAttributes;
+        static protected ASET esetAttributes;
+        static protected AGET egetMaxAttributes;
+        static protected ASET esetMaxAttributes;
+        static protected AGET egetEffects;
+        static protected ASET esetEffects;
+        #endregion
         static protected AGETFROMUNIQUEID egetFromUniqueId;
         static protected AGETSFROMAABB egetsFromAABB;
         static bool entityApiInited = false;
@@ -124,6 +144,17 @@ namespace CSR
                     egetUniqueId = api.ConvertComponentFunc<AGETUNIQUEID>(ENTITY_GET_UNIQUEID);
                     eremove = api.ConvertComponentFunc<AREMOVE>(ENTITY_REMOVE);
                     ehurt = api.ConvertComponentFunc<AHURT>(ENTITY_HURT);
+                    if (api.COMMERCIAL)
+                    {   // 非社区内容
+                        egetAbilities = api.ConvertComponentFunc<AGET>(ENTITY_GET_ABILITIES);
+                        esetAbilities = api.ConvertComponentFunc<ASET>(ENTITY_SET_ABILITIES);
+                        egetAttributes = api.ConvertComponentFunc<AGET>(ENTITY_GET_ATTRIBUTES);
+                        esetAttributes = api.ConvertComponentFunc<ASET>(ENTITY_SET_ATTRIBUTES);
+                        egetMaxAttributes = api.ConvertComponentFunc<AGET>(ENTITY_GET_MAXATTRIBUTES);
+                        esetMaxAttributes = api.ConvertComponentFunc<ASET>(ENTITY_SET_MAXATTRIBUTES);
+                        egetEffects = api.ConvertComponentFunc<AGET>(ENTITY_GET_EFFECTS);
+                        esetEffects = api.ConvertComponentFunc<ASET>(ENTITY_SET_EFFECTS);
+                    }
                     egetFromUniqueId = api.ConvertComponentFunc<AGETFROMUNIQUEID>(LEVEL_GETFROM_UNIQUEID);
                     egetsFromAABB = api.ConvertComponentFunc<AGETSFROMAABB>(LEVEL_GETSFROM_AABB);
                     entityApiInited = true;
@@ -386,6 +417,113 @@ namespace CSR
             }
             return false;
         }
+
+        #region 非社区内容
+        /// <summary>
+        /// 实体能力值列表
+        /// </summary>
+        public string Abilities
+        {
+            get
+            {
+                if (ptr != null && ptr != IntPtr.Zero)
+                {
+                    if (egetAbilities != null)
+                    {
+                        Std_String str = egetAbilities(ptr);
+                        return StrTool.c_str(str);
+                    }
+                }
+                return "";
+            }
+            set
+            {
+                if (ptr != null && ptr != IntPtr.Zero)
+                {
+                    if (esetAbilities != null)
+                        esetAbilities(ptr, value);
+                }
+            }
+        }
+        /// <summary>
+        /// 实体属性列表
+        /// </summary>
+        public string Attributes
+        {
+            get
+            {
+                if (ptr != null && ptr != IntPtr.Zero)
+                {
+                    if (egetAttributes != null)
+                    {
+                        Std_String str = egetAttributes(ptr);
+                        return StrTool.c_str(str);
+                    }
+                }
+                return "";
+            }
+            set
+            {
+                if (ptr != null && ptr != IntPtr.Zero)
+                {
+                    if (esetAttributes != null)
+                        esetAttributes(ptr, value);
+                }
+            }
+        }
+        /// <summary>
+        /// 实体属性最大值列表
+        /// </summary>
+        public string MaxAttributes
+        {
+            get
+            {
+                if (ptr != null && ptr != IntPtr.Zero)
+                {
+                    if (egetMaxAttributes != null)
+                    {
+                        Std_String str = egetMaxAttributes(ptr);
+                        return StrTool.c_str(str);
+                    }
+                }
+                return "";
+            }
+            set
+            {
+                if (ptr != null && ptr != IntPtr.Zero)
+                {
+                    if (esetMaxAttributes != null)
+                        esetMaxAttributes(ptr, value);
+                }
+            }
+        }
+        /// <summary>
+        /// 实体所有效果状态列表
+        /// </summary>
+        public string Effects
+        {
+            get
+            {
+                if (ptr != null && ptr != IntPtr.Zero)
+                {
+                    if (egetEffects != null)
+                    {
+                        Std_String str = egetEffects(ptr);
+                        return StrTool.c_str(str);
+                    }
+                }
+                return "";
+            }
+            set
+            {
+                if (ptr != null && ptr != IntPtr.Zero)
+                {
+                    if (esetEffects != null)
+                        esetEffects(ptr, value);
+                }
+            }
+        }
+        #endregion
 
         /// <summary>
         /// 从查询ID处反查一个实体（或玩家）

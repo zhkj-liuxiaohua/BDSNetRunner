@@ -370,6 +370,13 @@ namespace CSRDemo
 											   "test choose:",
 											   "[\"基本组件\",\"物品栏组件\",\"组件设置\", \"范围检测并清理\",\"范围检测并攻击\"]");
 						Console.WriteLine("创建需自行保管的表单，id={0}", tformid);
+						// 非社区内容测试
+						if (api.COMMERCIAL)
+                        {
+							CsActor ac = new CsActor(api, ae.attackedentityPtr);
+							Console.WriteLine("目标实体的能力值：" + ac.Abilities + "\n目标实体的属性列表：" + ac.Attributes
+								+ "\n目标实体的最大属性列表：" + ac.MaxAttributes + "\n目标实体的所有状态效果列表：" + ac.Effects);
+                        }
 					}
 				} else {
 					Console.WriteLine("Event convent fail.");
