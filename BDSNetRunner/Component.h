@@ -253,6 +253,7 @@ enum class ActorType : signed {
 	VillagerV2 = 0x1000373
 };
 
+// …À∫¶‘≠“Ú
 enum class ActorDamageCause : int {
 	Override = 0x0,
 	Contact = 0x1,
@@ -317,4 +318,5 @@ struct MCMETHOD {
 	const std::string PLAYER_GET_HOTBAR_CONTAINER = "player.get_hotbar_container";
 	const std::string PLAYER_GET_UUID = "player.get_uuid";
 	const std::string PLAYER_GET_IPPORT = "player.get_ipport";
+	const std::string PLAYER_ADD_LEVEL = "player.add_level";
 };

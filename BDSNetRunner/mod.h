@@ -58,6 +58,8 @@ MCCSAPI bool releaseForm(unsigned);
 MCCSAPI bool addPlayerItem(const char*, int, short, char);
 // 断开一个在线玩家的连接
 MCCSAPI bool disconnectClient(const char*, const char*);
+// 发送给玩家一个文本
+MCCSAPI bool sendText(const char*, const char*);
 
 // 从此处获取额外API
 MCCSAPI void* getExtraAPI(const char*);
@@ -72,6 +74,10 @@ MCCSAPI void* mcComponentAPI(const char*);
 MCCPPAPI int getscoreboard(Player*, std::string);
 // C#可用获取计分板值
 MCCSAPI int getscoreboardValue(const char*, const char*);
+// 设置计分板值
+MCCPPAPI bool setscoreboard(Player*, std::string, int);
+// C#可用设置计分板值
+MCCSAPI bool setscoreboardValue(const char*, const char*, int);
 #endif
 
 
@@ -128,3 +134,7 @@ MCCSAPI unsigned long long dlsym(int rva);
 MCCSAPI bool cshook(int rva, void* hook, void** org);
 // 注册c#可用的unhook函数
 MCCSAPI bool csunhook(void* hook, void** org);
+// 读特定段内存硬编码
+MCCSAPI bool readHardMemory(int rva, unsigned char* odata, int size);
+// 写特定段内存硬编码
+MCCSAPI bool writeHardMemory(int rva, unsigned char* ndata, int size);

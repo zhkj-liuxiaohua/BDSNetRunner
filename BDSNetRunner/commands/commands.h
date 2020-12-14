@@ -60,28 +60,3 @@ public:
 		return *Ori;
 	}
 };
-
-struct BaseCommandBlock {
-	std::string mLastOutputId;
-	std::vector<std::string> mLastOutputParams;
-	std::string mCommand;
-	std::string mName;
-	VA mCompiledCommand;
-	VA mLastExecution;
-	int mVersion;
-	int mSuccessCount;
-	int mTickDelay;
-	char mExecuteOnFirstTick;
-	char mTrackOutput;
-	char uk[2];
-public:
-	std::string getCmd() {						// IDA BaseCommandBlock::save
-		return *(std::string *)((VA)this + 56);
-	}
-	std::string getName() {
-		return *(std::string*)((VA)this + 88);
-	}
-	int getTickDelay() {
-		return *((int*)this + 36);
-	}
-};

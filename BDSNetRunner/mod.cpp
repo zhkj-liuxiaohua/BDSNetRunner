@@ -17,7 +17,7 @@
 #pragma comment(lib, "mscoree.lib")
 
 // 当前插件平台版本号
-static const wchar_t* VERSION = L"1.16.40.2";
+static const wchar_t* VERSION = L"1.16.100.4";
 static const wchar_t* ISFORCOMMERCIAL = L"1";
 
 static bool netregok = false;
@@ -349,612 +349,6 @@ std::string getOnLinePlayers() {
 	return rt.isNull() ? "" : std::string(rt.toStyledString().c_str());
 }
 
-#if (COMMERCIAL)
-
-// 换算两个顶点为西北下点与偏移量
-static void countPos2AOff(BPos3* a1, BPos3* a2) {
-	int minx, miny, minz, dx, dy, dz;
-	minx = min(a1->x, a2->x);
-	miny = min(a1->y, a2->y);
-	minz = min(a1->z, a2->z);
-	dx = abs(a1->x - a2->x);
-	dy = abs(a1->y - a2->y);
-	dz = abs(a1->z - a2->z);
-	a1->x = minx;
-	a1->y = miny;
-	a1->z = minz;
-	a2->x = dx + 1;
-	a2->y = dy + 1;
-	a2->z = dz + 1;
-}
-
-// 函数名：getStructure
-// 功能：获取一个结构
-// 参数个数：5个
-// 参数类型：整型，字符串，字符串，布尔型，布尔型
-// 参数详解：dimensionid - 地图维度，posa - 坐标JSON字符串，posb - 坐标JSON字符串，exent - 是否导出实体，exblk - 是否导出方块
-// 返回值：结构json字符串
-static std::string getStructure(int did, const char* jsonposa, const char* jsonposb, bool exent, bool exblk) {
-	std::unique_ptr<char[]> x;
-	if (p_level && (did > -1 && did < 3)) {
-		Json::Value jposa = toJson(jsonposa);
-		Json::Value jposb = toJson(jsonposb);
-		BPos3 a, b;
-		if (!jposa.isNull() && !jposb.isNull()) {
-			a.x = jposa["x"].asInt();
-			a.y = jposa["y"].asInt();
-			a.z = jposa["z"].asInt();
-			b.x = jposb["x"].asInt();
-			b.y = jposb["y"].asInt();
-			b.z = jposb["z"].asInt();
-			countPos2AOff(&a, &b);
-			VA t = StructureTemplate::getStructure(p_level, did, a, b, exent, exblk);
-			std::string ret = std::string((*(Tag**)t)->toJson().toStyledString().c_str());
-			(*(Tag**)t)->clearAll();
-			*(VA*)t = 0;
-			delete (VA*)t;
-			return ret;
-		}
-	}
-	return "";
-}
-
-// 函数名：setStructure
-// 功能：设置一个结构到指定位置
-// 参数个数：6个
-// 参数类型：字符串，整型，字符串，整型，布尔型，布尔型
-// 参数详解：strnbt - 结构JSON字符串，dimensionid - 地图维度，posa - 起始点坐标JSON字符串，rot - 旋转类型，exent - 是否导入实体，exblk - 是否导入方块
-// 返回值：是否设置成功
-static bool setStructure(const char* jdata, int did, const char* jsonposa, char rot, bool exent, bool exblk) {
-	bool ret = false;
-	if (p_level && (did > -1 && did < 3)) {
-		Json::Value jposa = toJson(jsonposa);
-		BPos3 a;
-		if (!jposa.isNull()) {
-			a.x = jposa["x"].asInt();
-			a.y = jposa["y"].asInt();
-			a.z = jposa["z"].asInt();
-			Json::Value jv = toJson(jdata);
-			VA t = Tag::fromJson(jv);
-			ret = StructureTemplate::placeStructure(*(VA*)t, p_level, did, a, rot, exent, exblk);
-			(*(Tag**)t)->clearAll();
-			*(VA*)t = 0;
-			delete (VA*)t;
-		}
-	}
-	return ret;
-}
-
-// 获取标准能力值列表
-static Json::Value getAbilities(Player* p) {
-	Json::Value jv;
-	for (int i = 0; i < 18; i++) {
-		std::string x = Abilities::getAbilityName(i);
-		if (x != "") {
-			jv[x] = p->getAbility(i);
-		}
-	}
-	return jv;
-}
-
-// 函数名：getPlayerAbilities
-// 功能：获取玩家能力表
-// 参数个数：1个
-// 参数类型：字符串
-// 参数详解：uuid - 在线玩家的uuid字符串
-// 返回值：能力json字符串
-static std::string getPlayerAbilities(const char* uuid) {
-	std::string ret = "";
-	Player* p = onlinePlayers[uuid];
-	if (playerSign[p]) {
-		mleftlock.lock();
-		auto jv = getAbilities(p);
-		mleftlock.unlock();
-		return std::string(jv.toStyledString().c_str());
-	}
-	return "";
-}
-
-// 函数名：setPlayerAbilities
-// 功能：设置玩家能力表
-// 参数个数：2个
-// 参数类型：字符串，字符串
-// 参数详解：uuid - 在线玩家的uuid字符串，newAbilities - 新能力json数据字符串
-// 返回值：是否设置成功
-static bool setPlayerAbilities(const char* uuid, const char* abdata) {
-	Player* p = onlinePlayers[uuid];
-	if (playerSign[p]) {
-		std::string suuid = uuid;
-		std::string sabdata = abdata;
-		auto fr = [suuid, sabdata]() {
-			Player* p = onlinePlayers[suuid];
-			if (playerSign[p]) {
-				Json::Value jv = toJson(sabdata);
-				if (jv.isNull()) {
-					return;
-				}
-				auto members = jv.getMemberNames();
-				for (auto& a : members) {
-					p->setAbility(Abilities::nameToAbilityIndex(a.c_str()), jv[a].asBool());
-				}
-				p->setPermission(p->getPermission());
-			}
-		};
-		safeTick(fr);
-		return true;
-	}
-	return false;
-}
-
-// 函数名：getPlayerAttributes
-// 功能：获取玩家属性表
-// 参数个数：1个
-// 参数类型：字符串
-// 参数详解：uuid - 在线玩家的uuid字符串
-// 返回值：属性json字符串
-static std::string getPlayerAttributes(const char* uuid) {
-	Player* p = onlinePlayers[uuid];
-	if (playerSign[p]) {
-		mleftlock.lock();
-		const std::map<std::string, VA>& al = Mob::getAttrs();
-		Json::Value jv;
-		for (auto& k : al) {
-			jv[k.first] = p->getAttr(k.first.c_str());
-		}
-		mleftlock.unlock();
-		return std::string(jv.toStyledString().c_str());
-	}
-	return "";
-}
-
-// 函数名：setPlayerTempAttributes
-// 功能：设置玩家属性临时值表
-// 参数个数：2个
-// 参数类型：字符串，字符串
-// 参数详解：uuid - 在线玩家的uuid字符串，newTempAttributes - 新属性临时值json数据字符串
-// 返回值：是否设置成功
-// （备注：该函数可能不会变更客户端实际显示值）
-static bool setPlayerTempAttributes(const char* uuid, const char* jstr) {
-	Player* p = onlinePlayers[uuid];
-	if (playerSign[p]) {
-		std::string suuid = uuid;
-		std::string sjstr = jstr;
-		auto fr = [suuid, sjstr]() {
-			Player* p = onlinePlayers[suuid];
-			if (playerSign[p]) {
-				Json::Value jv = toJson(sjstr);
-				if (jv.isNull()) {
-					return;
-				}
-				auto members = jv.getMemberNames();
-				for (auto& a : members) {
-					p->setTmpAttr(a.c_str(), jv[a].asFloat());
-				}
-			}
-		};
-		safeTick(fr);
-		return true;
-	}
-	return false;
-}
-
-// 函数名：getPlayerMaxAttributes
-// 功能：获取玩家属性上限值表
-// 参数个数：1个
-// 参数类型：字符串
-// 参数详解：uuid - 在线玩家的uuid字符串
-// 返回值：属性上限值json字符串
-static std::string getPlayerMaxAttributes(const char* uuid) {
-	Player* p = onlinePlayers[uuid];
-	if (playerSign[p]) {
-		mleftlock.lock();
-		const std::map<std::string, VA>& al = Mob::getMaxAttrs();
-		Json::Value jv;
-		for (auto& k : al) {
-			jv[k.first] = p->getMaxAttr(k.first.c_str());
-		}
-		mleftlock.unlock();
-		return std::string(jv.toStyledString().c_str());
-	}
-	return "";
-}
-
-// 函数名：setPlayerMaxAttributes
-// 功能：设置玩家属性上限值表
-// 参数个数：2个
-// 参数类型：字符串，字符串
-// 参数详解：uuid - 在线玩家的uuid字符串，newMaxAttributes - 新属性上限值json数据字符串
-// 返回值：是否设置成功
-// （备注：该函数可能不会变更客户端实际显示值）
-static bool setPlayerMaxAttributes(const char* uuid, const char* jstr) {
-	Player* p = onlinePlayers[uuid];
-	if (playerSign[p]) {
-		std::string suuid = uuid;
-		std::string sjstr = jstr;
-		auto fr = [suuid, sjstr]() {
-			Player* p = onlinePlayers[suuid];
-			if (playerSign[p]) {
-				Json::Value jv = toJson(sjstr);
-				if (jv.isNull()) {
-					return;
-				}
-				auto members = jv.getMemberNames();
-				for (auto& a : members) {
-					p->setMaxAttr(a.c_str(), jv[a].asFloat());
-				}
-			}
-		};
-		safeTick(fr);
-		return true;
-	}
-	return false;
-}
-
-// 函数名：getPlayerItems
-// 功能：获取玩家所有物品列表
-// 参数个数：1个
-// 参数类型：字符串
-// 参数详解：uuid - 在线玩家的uuid字符串
-// 返回值：物品列表json字符串
-static std::string getPlayerItems(const char* uuid) {
-	Player* p = onlinePlayers[uuid];
-	if (playerSign[p]) {
-		mleftlock.lock();
-		Json::Value jv = p->getAllItemsList();
-		mleftlock.unlock();
-		return std::string(jv.toStyledString().c_str());
-	}
-	return "";
-}
-
-// 函数名：setPlayerItems
-// 功能：设置玩家所有物品列表
-// 参数个数：2个
-// 参数类型：字符串，字符串
-// 参数详解：uuid - 在线玩家的uuid字符串，newItems - 新物品列表json数据字符串
-// 返回值：是否设置成功
-// （备注：特定条件下可能不会变更游戏内实际物品）
-static bool setPlayerItems(const char* uuid, const char* jstr) {
-	Player* p = onlinePlayers[uuid];
-	if (playerSign[p]) {
-		std::string suuid = uuid;
-		std::string sjstr = GBKToUTF8(jstr);
-		auto fr = [suuid, sjstr]() {
-			Player* p = onlinePlayers[suuid];
-			if (playerSign[p]) {
-				Json::Value jv = toJson(sjstr);
-				if (jv.isNull()) {
-					return;
-				}
-				p->setAllItemsList(jv);
-				p->updateInventory();
-			}
-		};
-		safeTick(fr);
-		return true;
-	}
-	return false;
-}
-
-// 函数名：getPlayerSelectedItem
-// 功能：获取玩家当前选中项信息
-// 参数个数：1个
-// 参数类型：字符串
-// 参数详解：uuid - 在线玩家的uuid字符串
-// 返回值：当前选中项信息json字符串
-static std::string getPlayerSelectedItem(const char* uuid) {
-	Player* p = onlinePlayers[uuid];
-	if (playerSign[p]) {
-		mleftlock.lock();
-		Json::Value jv;
-		jv["selectedslot"] = p->getSelectdItemSlot();
-		ItemStack* its = (ItemStack*)p->getSelectedItem();
-		if (its != SYM_POINT(ItemStack, MSSYM_B1QA5EMPTYB1UA4ITEMB1AA9ItemStackB2AAA32V1B1AA1B)) {
-			jv["selecteditem"] = its->toJson();
-		}
-		mleftlock.unlock();
-		return std::string(jv.toStyledString().c_str());
-	}
-	return "";
-}
-
-// 函数名：addPlayerItemEx
-// 功能：增加玩家一个物品
-// 参数个数：2个
-// 参数类型：字符串，字符串
-// 参数详解：uuid - 在线玩家的uuid字符串，item - 物品json数据字符串
-// 返回值：是否添加成功
-// （备注：特定条件下可能不会变更游戏内实际物品）
-static bool addPlayerItemEx(const char* uuid, const char* item) {
-	Player* p = onlinePlayers[uuid];
-	if (playerSign[p]) {
-		std::string suuid = uuid;
-		std::string sitem = GBKToUTF8(item);
-		auto fr = [suuid, sitem]() {
-			Player* p = onlinePlayers[suuid];
-			if (playerSign[p]) {
-				Json::Value jv = toJson(sitem);
-				if (jv.isNull()) {
-					return;
-				}
-				ItemStack x;
-				x.fromJson(jv);
-				p->addItem((VA)&x);
-				p->updateInventory();
-			}
-		};
-		safeTick(fr);
-		return true;
-	}
-	return false;
-}
-
-// 函数名：getPlayerEffects
-// 功能：获取玩家所有效果列表
-// 参数个数：1个
-// 参数类型：字符串
-// 参数详解：uuid - 在线玩家的uuid字符串
-// 返回值：效果列表json字符串
-static std::string getPlayerEffects(const char* uuid) {
-	Player* p = onlinePlayers[uuid];
-	if (playerSign[p]) {
-		Json::Value jv = p->getAllEffects();
-		if (!jv.isNull()) {
-			return std::string(jv.toStyledString().c_str());
-		}
-	}
-	return "";
-}
-
-// 函数名：setPlayerEffects
-// 功能：设置玩家所有效果列表
-// 参数个数：2个
-// 参数类型：字符串，字符串
-// 参数详解：uuid - 在线玩家的uuid字符串，newEffects - 新效果列表json数据字符串
-// 返回值：是否设置成功
-// （备注：特定条件下可能不会变更游戏内实际物品）
-static bool setPlayerEffects(const char* uuid, const char* effs) {
-	Player* p = onlinePlayers[uuid];
-	if (playerSign[p]) {
-		std::string suuid = uuid;
-		std::string seffs = effs;
-		auto fr = [suuid, seffs]() {
-			Player* p = onlinePlayers[suuid];
-			if (playerSign[p]) {
-				Json::Value jv = toJson(seffs);
-				if (jv.isNull()) {
-					return;
-				}
-				p->setAllEffects(jv);
-			}
-		};
-		safeTick(fr);
-		return true;
-	}
-	return false;
-}
-
-// 卸载bossbar
-static bool releaseBossBar(Player* p) {
-	if (p) {
-		VA t = 0;
-		BossEventPacket sec;
-		SYMCALL(VA, MSSYM_B1QE12createPacketB1AE16MinecraftPacketsB2AAA2SAB1QA2AVB2QDA6sharedB1UA3ptrB1AA7VPacketB3AAAA3stdB2AAE20W4MinecraftPacketIdsB3AAAA1Z,
-			&t, 74);
-		if (t) {
-			BossEventPacket* pt = (BossEventPacket*)t;
-			pt->mEventType = 2;	// remove player
-			pt->mHealthPercent = 0;
-			pt->mBossID = pt->mPlayerID = *(p->getUniqueID());
-			p->sendPacket(t);
-			return true;
-		}
-	}
-	return false;
-}
-
-// 函数名：setPlayerBossBar
-// 功能：设置玩家自定义血条
-// 参数个数：3个
-// 参数类型：字符串，字符串，浮点型
-// 参数详解：uuid - 在线玩家的uuid字符串，title - 血条标题，percent - 血条百分比
-// 返回值：是否设置成功
-static bool setPlayerBossBar(const char* uuid, const char* title, float percent) {
-	Player* p = onlinePlayers[uuid];
-	if (playerSign[p]) {
-		std::string suuid = uuid;
-		std::string stitle = GBKToUTF8(title);
-		auto fr = [suuid, stitle, percent]() {
-			Player* p = onlinePlayers[suuid];
-			if (playerSign[p]) {
-				if (releaseBossBar(p)) {
-					VA t = 0;
-					BossEventPacket sec;
-					SYMCALL(VA, MSSYM_B1QE12createPacketB1AE16MinecraftPacketsB2AAA2SAB1QA2AVB2QDA6sharedB1UA3ptrB1AA7VPacketB3AAAA3stdB2AAE20W4MinecraftPacketIdsB3AAAA1Z,
-						&t, 74);
-					if (t) {
-						BossEventPacket* pt = (BossEventPacket*)t;
-						pt->mName = stitle;
-						pt->mEventType = 0;	// add player
-						pt->mHealthPercent = percent;
-						pt->mBossID = pt->mPlayerID = *(p->getUniqueID());
-						p->sendPacket(t);
-					}
-				}
-			}
-		};
-		safeTick(fr);
-		return true;
-	}
-	return false;
-}
-
-// 函数名：removePlayerBossBar
-// 功能：清除玩家自定义血条
-// 参数个数：1个
-// 参数类型：字符串
-// 参数详解：uuid - 在线玩家的uuid字符串
-// 返回值：是否清除成功
-static bool removePlayerBossBar(const char* uuid) {
-	Player* p = onlinePlayers[uuid];
-	if (playerSign[p]) {
-		std::string suuid = uuid;
-		auto fr = [suuid]() {
-			Player* p = onlinePlayers[suuid];
-			if (playerSign[p]) {
-				releaseBossBar(p);
-			}
-		};
-		safeTick(fr);
-		return true;
-	}
-	return false;
-}
-
-
-// 函数名：teleport
-// 功能：传送玩家至指定坐标和维度
-// 参数个数：5个
-// 参数类型：字符串，浮点型，浮点型，浮点型，整型
-// 参数详解：uuid - 在线玩家的uuid字符串，X - x，Y - y，Z - z，dimensionid - 维度ID
-// 返回值：是否传送成功
-static bool teleport(const char* uuid, float x, float y, float z, int did) {
-	Player* p = onlinePlayers[uuid];
-	if (playerSign[p]) {
-		std::string suuid = uuid;
-		auto fr = [suuid, x, y, z, did]() {
-			Player* p = onlinePlayers[suuid];
-			if (playerSign[p]) {
-				Vec3 v;
-				v.x = x;
-				v.y = y;
-				v.z = z;
-				p->teleport(&v, did);
-			}
-		};
-		safeTick(fr);
-		return true;
-	}
-	return false;
-}
-
-
-// 函数名：setPlayerSidebar
-// 功能：设置玩家自定义侧边栏临时计分板
-// 参数个数：3个
-// 参数类型：字符串，字符串，字符串
-// 参数详解：uuid - 在线玩家的uuid字符串，title - 侧边栏标题，list - 列表字符串数组
-// 返回值：是否设置成功
-// （注：列表总是从第1行开始，总计不超过15行）
-static bool setPlayerSidebar(const char* uuid, const char* title, const char* list) {
-	Player* p = onlinePlayers[uuid];
-	if (playerSign[p]) {
-		std::string suuid = uuid;
-		std::string stitle = GBKToUTF8(title);
-		std::string slist = GBKToUTF8(list);
-		auto fr = [suuid, stitle, slist]() {
-			Player* p = onlinePlayers[suuid];
-			if (playerSign[p]) {
-				Json::Value jv = toJson(slist);
-				std::vector<std::string> l;
-				if (!jv.isNull()) {
-					for (auto& v : jv) {
-						l.push_back(v.asString());
-					}
-				}
-				((Scoreboard*)((Level*)p->getLevel())->getScoreBoard())->sendCustemData(p, stitle, l);
-			}
-		};
-		safeTick(fr);
-		return true;
-	}
-	return false;
-}
-
-// 函数名：removePlayerSidebar
-// 功能：清除玩家自定义侧边栏
-// 参数个数：1个
-// 参数类型：字符串
-// 参数详解：uuid - 在线玩家的uuid字符串
-// 返回值：是否清除成功
-static bool removePlayerSidebar(const char* uuid) {
-	Player* p = onlinePlayers[uuid];
-	if (playerSign[p]) {
-		std::string suuid = uuid;
-		auto fr = [suuid]() {
-			Player* p = onlinePlayers[suuid];
-			if (playerSign[p]) {
-				((Scoreboard*)((Level*)p->getLevel())->getScoreBoard())->removeCustemScoreData(p);
-			}
-		};
-		safeTick(fr);
-		return true;
-	}
-	return false;
-}
-
-// 函数名：getPlayerPermissionAndGametype
-// 功能：获取玩家权限与游戏模式
-// 参数个数：1个
-// 参数类型：字符串
-// 参数详解：uuid - 在线玩家的uuid字符串
-// 返回值：权限与模式的json字符串
-static std::string getPlayerPermissionAndGametype(const char* uuid) {
-	Player* p = onlinePlayers[uuid];
-	if (playerSign[p]) {
-		mleftlock.lock();
-		Json::Value jv;
-		jv["oplevel"] = (int)p->getPermission();
-		jv["permission"] = (int)p->getPermissionLevel();
-		jv["gametype"] = p->getGameType();
-		mleftlock.unlock();
-		return std::string(jv.toStyledString().c_str());
-	}
-	return "";
-}
-
-// 函数名：setPlayerPermissionAndGametype
-// 功能：设置玩家权限与游戏模式
-// 参数个数：2个
-// 参数类型：字符串，字符串
-// 参数详解：uuid - 在线玩家的uuid字符串，newModes - 新权限或模式json数据字符串
-// 返回值：是否设置成功
-// （备注：特定条件下可能不会变更游戏内实际能力）
-static bool setPlayerPermissionAndGametype(const char* uuid, const char* newModes) {
-	Player* p = onlinePlayers[uuid];
-	if (playerSign[p]) {
-		std::string suuid = uuid;
-		std::string jvdata = newModes;
-		auto fr = [suuid, jvdata]() {
-			Player* p = onlinePlayers[suuid];
-			if (playerSign[p]) {
-				Json::Value jv = toJson(jvdata);
-				if (!jv.isNull()) {
-					Json::Value ol = jv["oplevel"];
-					Json::Value per = jv["permission"];
-					Json::Value ty = jv["gametype"];
-					if (!ol.isNull()) {
-						p->setPermission((char)ol.asInt());
-					}
-					if (!per.isNull()) {
-						p->setPermissionLevel((char)per.asInt());
-						p->setPermission(p->getPermission());
-					}
-					if (!ty.isNull()) {
-						p->setGameType(ty.asInt());
-					}
-				}
-			}
-		};
-		safeTick(fr);
-		return true;
-	}
-	return false;
-}
-
-
-#endif
-
 // 函数名：reNameByUuid
 // 功能：重命名一个指定的玩家名
 // 参数个数：2个
@@ -1137,6 +531,45 @@ bool disconnectClient(const char* uuid, const char* tips) {
 	return false;
 }
 
+// 函数名：sendText
+// 功能：发送一个文本给指定玩家
+// 参数个数：2个
+// 参数类型：字符串，字符串
+// 参数详解：uuid - 在线玩家的uuid字符串，txt - 聊天框文本
+// 返回值：是否发送成功
+bool sendText(const char* uuid, const char* txt) {
+	Player* p = onlinePlayers[uuid];
+	if (playerSign[p]) {
+		std::string suuid = uuid;
+		std::string stxt = "";
+		if (txt) {
+			auto s = GBKToUTF8(txt);
+			if (s.length())
+				stxt = s;
+		}
+		if (stxt.length()) {
+			auto fr = [suuid, stxt]() {
+				Player* p = onlinePlayers[suuid];
+				if (playerSign[p]) {
+					std::string n = p->getNameTag();
+					VA nid = p->getNetId();
+					VA tpk;
+					TextPacket sec;
+					SYMCALL(VA, MSSYM_B1QE12createPacketB1AE16MinecraftPacketsB2AAA2SAB1QA2AVB2QDA6sharedB1UA3ptrB1AA7VPacketB3AAAA3stdB2AAE20W4MinecraftPacketIdsB3AAAA1Z,
+						&tpk, 9);
+					*(char*)(tpk + 40) = 0;
+					*(std::string*)(tpk + 48) = n;
+					*(std::string*)(tpk + 80) = stxt;
+					p->sendPacket(tpk);
+				}
+			};
+			safeTick(fr);
+			return true;
+		}
+	}
+	return false;
+}
+
 // 判断指针是否为玩家列表中指针
 static bool checkIsPlayer(void* p) {
 	return playerSign[(Player*)p];
@@ -1265,6 +698,20 @@ int getscoreboardValue(const char* uuid, const char* objname) {
 	return getscoreboard(p, oname);
 }
 
+// 函数名：getscorebroardValue
+// 功能：设置指定玩家指定计分板上的数值
+// 参数个数：3个
+// 参数类型：字符串，字符串，数值
+// 参数详解：uuid - 在线玩家的uuid字符串，objname - 计分板登记的名称，count - 待设置的值
+// 返回值：是否设置成功，若目标不存在则发信一条创建指令及设置分数指令
+bool setscoreboardValue(const char* uuid, const char* objname, int count) {
+	Player* p = onlinePlayers[uuid];
+	if (!playerSign[p])
+		return false;
+	auto oname = GBKToUTF8(objname);
+	return setscoreboard(p, oname, count);
+}
+
 #endif
 
 // 附加玩家信息
@@ -1297,7 +744,7 @@ static void getDamageInfo(void* p, void* dsrc, MobDieEvent* ue) {			// IDA Mob::
 	VA  v2[2];
 	v2[0] = (VA)p;
 	v2[1] = (VA)dsrc;
-	auto v7 = *((VA*)(v2[0] + 816));
+	auto v7 = ((Mob*)p)->getLevel();
 	auto srActid = (VA*)(*(VA(__fastcall**)(VA, char*))(*(VA*)v2[1] + 64))(
 		v2[1], &v72);
 	auto SrAct = SYMCALL(Actor*,
@@ -1352,8 +799,8 @@ std::string Actor::sgetArmorContainer(Actor* e) {
 }
 
 std::string Actor::sgetAttack(Actor* e) {
-	if (*(VA*)(((VA*)e)[28] + 712)) {	// IDA ScriptAttackComponent::retrieveComponentFrom
-		VA atattr = (*(VA(__fastcall**)(Actor*, VA*))(*(VA*)e + 1536))(
+	if (*(VA*)(((VA*)e)[32] + 696)) {	// IDA ScriptAttackComponent::retrieveComponentFrom
+		VA atattr = (*(VA(__fastcall**)(Actor*, VA*))(*(VA*)e + 1552))(
 			e,
 			SYM_POINT(VA, MSSYM_B1QA6ATTACKB1UA6DAMAGEB1AE16SharedAttributesB2AAE112VAttributeB2AAA1B));
 		if (*(VA*)(atattr + 16)) {
@@ -1373,7 +820,7 @@ bool Actor::ssetAttack(Actor* e, const char* damage) {
 	if (!jv.isNull()) {
 		float dmin = jv["range_min"].asFloat();
 		float dmax = jv["range_max"].asFloat();
-		VA mptr = ((VA*)e)[135];					// IDA ScriptAttackComponent::applyComponentTo
+		VA mptr = ((VA*)e)[140];					// IDA ScriptAttackComponent::applyComponentTo
 		if (mptr) {
 			VA v20 = SYMCALL(VA, MSSYM_B1QE17registerAttributeB1AE16BaseAttributeMapB2AAE25QEAAAEAVAttributeInstanceB2AAE13AEBVAttributeB3AAAA1Z,
 				mptr, SYM_POINT(VA, MSSYM_B1QA6ATTACKB1UA6DAMAGEB1AE16SharedAttributesB2AAE112VAttributeB2AAA1B));
@@ -1388,8 +835,8 @@ bool Actor::ssetAttack(Actor* e, const char* damage) {
 }
 
 std::string Actor::sgetCollisionBox(Actor* e) {
-	float w = *((float*)e + 285);		// IDA Actor::_refreshAABB
-	float h = *((float*)e + 286);
+	float w = *((float*)e + 295);		// IDA Actor::_refreshAABB
+	float h = *((float*)e + 296);
 	Json::Value jv;
 	jv["width"] = w;
 	jv["height"] = h;
@@ -1402,11 +849,11 @@ bool Actor::ssetCollisionBox(Actor* e, const char* box) {
 		float w = jv["width"].asFloat();
 		float h = jv["height"].asFloat();
 		if (w != 0 && h != 0) {			// IDA SynchedActorData::set<float>
-			*((float*)e + 285) = w;
-			*((float*)e + 286) = h;
+			*((float*)e + 295) = w;
+			*((float*)e + 296) = h;
 			SYMCALL(VA, MSSYM_B1QA7setSizeB1AA5ActorB2AAA7UEAAXMMB1AA1Z, e, w, h);
-			SYMCALL(VA, MSSYM_B3QQDA3setB1AA1MB1AE16SynchedActorDataB2AAE10QEAAXGAEBMB1AA1Z, (VA)e + 320, ActorDataIDs::WIDTH, &w);
-			SYMCALL(VA, MSSYM_B3QQDA3setB1AA1MB1AE16SynchedActorDataB2AAE10QEAAXGAEBMB1AA1Z, (VA)e + 320, ActorDataIDs::HEIGHT, &h);
+			SYMCALL(VA, MSSYM_B3QQDA3setB1AA1MB1AE16SynchedActorDataB2AAE10QEAAXGAEBMB1AA1Z, (VA)e + 352, ActorDataIDs::WIDTH, &w);
+			SYMCALL(VA, MSSYM_B3QQDA3setB1AA1MB1AE16SynchedActorDataB2AAE10QEAAXGAEBMB1AA1Z, (VA)e + 352, ActorDataIDs::HEIGHT, &h);
 			return true;
 		}
 	}
@@ -1421,7 +868,7 @@ std::string Actor::sgetHandContainer(Actor* e) {
 		(ItemStack*)(*(VA(__fastcall**)(VA, VA))(**(VA**)phand + 152))(
 			*(VA*)phand, (VA)&hands);
 		if (Actor::sgetEntityTypeId(e) == 319) {
-			ItemStack* v6 = (*(ItemStack *(__fastcall**)(Actor*))(*(VA*)e + 1200))(e);
+			ItemStack* v6 = (*(ItemStack *(__fastcall**)(Actor*))(*(VA*)e + 1216))(e);
 			hands[0] = v6;
 		}
 		for (VA i = 0, l = hands.size(); i < l; i++) {
@@ -1439,7 +886,7 @@ std::string Actor::sgetHandContainer(Actor* e) {
 }
 
 std::string Actor::sgetHealth(Actor* e) {
-	VA bpattrmap = ((VA*)e)[135];			// IDA ScriptHealthComponent::retrieveComponentFrom
+	VA bpattrmap = ((VA*)e)[140];			// IDA ScriptHealthComponent::retrieveComponentFrom
 	if (bpattrmap) {
 		VA hattr = SYMCALL(VA, MSSYM_B1QE18getMutableInstanceB1AE16BaseAttributeMapB2AAE25QEAAPEAVAttributeInstanceB2AAA1IB1AA1Z,
 			bpattrmap, SYM_OBJECT(UINT32, MSSYM_B1QA6HEALTHB1AE16SharedAttributesB2AAE112VAttributeB2AAA1B + 4));
@@ -1460,7 +907,7 @@ bool Actor::ssetHealth(Actor* e, const char* hel) {
 	if (!jv.isNull()) {
 		float value = jv["value"].asFloat();
 		float max = jv["max"].asFloat();
-		VA bpattrmap = ((VA*)e)[135];
+		VA bpattrmap = ((VA*)e)[140];
 		if (bpattrmap) {
 			VA hattr = SYMCALL(VA, MSSYM_B1QE18getMutableInstanceB1AE16BaseAttributeMapB2AAE25QEAAPEAVAttributeInstanceB2AAA1IB1AA1Z,
 				bpattrmap, SYM_OBJECT(UINT32, MSSYM_B1QA6HEALTHB1AE16SharedAttributesB2AAE112VAttributeB2AAA1B + 4));
@@ -1516,7 +963,7 @@ bool Actor::ssetName(Actor* e, const char* n, bool alwaysShow) {
 	} else
 		SYMCALL(VA, MSSYM_MD5_2f9772d3549cbbfca05bc883e3dd5c30, e, nname);
 	bool v = alwaysShow;					// IDA SynchedActorData::set<signed char>
-	SYMCALL(VA, MSSYM_B3QQDA3setB1AA1CB1AE16SynchedActorDataB2AAE10QEAAXGAEBCB1AA1Z, (VA)e + 320, ActorDataIDs::NAMETAG_ALWAYS_SHOW, &v);
+	SYMCALL(VA, MSSYM_B3QQDA3setB1AA1CB1AE16SynchedActorDataB2AAE10QEAAXGAEBCB1AA1Z, (VA)e + 352, ActorDataIDs::NAMETAG_ALWAYS_SHOW, &v);
 	return true;
 }
 
@@ -1540,7 +987,7 @@ bool Actor::ssetPosition(Actor* e, const char* jpos) {
 		v.y = jv["y"].asFloat();
 		v.z = jv["z"].asFloat();
 		int v9 = (int)ActorType::Undefined_2;		// IDA ScriptPositionComponent::applyComponentTo
-		(*(void(__fastcall**)(Actor*, Vec3*, VA, VA, signed int, VA*))(*(VA*)e + 264))(
+		(*(void(__fastcall**)(Actor*, Vec3*, VA, VA, signed int, VA*))(*(VA*)e + 272))(
 			e, &v, 1, 0, v9, SYM_POINT(VA, MSSYM_B1QA7INVALIDB1UA2IDB1AE13ActorUniqueIDB2AAA32U1B1AA1B));
 		if (Actor::sgetEntityTypeId(e) == 319) {
 			v9 = (int)ActorType::Player_0;
@@ -1554,8 +1001,8 @@ bool Actor::ssetPosition(Actor* e, const char* jpos) {
 
 std::string Actor::sgetRotation(Actor* e) {
 	Json::Value jv;
-	float x = ((float*)e)[64];					// IDA Actor::setRot
-	float y = ((float*)e)[65];
+	float x = ((float*)e)[72];					// IDA Actor::setRot
+	float y = ((float*)e)[73];
 	jv["x"] = x;
 	jv["y"] = y;
 	return jv.toStyledString();
@@ -1573,7 +1020,7 @@ bool Actor::ssetRotation(Actor* e, const char* jr) {
 		if (Actor::sgetEntityTypeId(e) == 319) {
 			Vec3 c3;
 			memcpy(&c3, e->getPos(), sizeof(Vec3));
-			float h = *((float*)e + 286);				// IDA Actor::_refreshAABB
+			float h = *((float*)e + 296);				// IDA Actor::_refreshAABB
 			c3.y -= (float)(1.7999999523162842 * 0.9);
 			auto v9 = (int)ActorType::Player_0;
 			SYMCALL(VA, MSSYM_B1QE10teleportToB1AA6PlayerB2AAE13UEAAXAEBVVec3B3AAUE20NHHAEBUActorUniqueIDB3AAAA1Z, e, &c3, 1, 0,
@@ -1589,7 +1036,7 @@ int Actor::sgetDimensionId(Actor* e) {
 }
 
 int Actor::sgetEntityTypeId(Actor* e) {
-	return (*(int(__fastcall**)(Actor*))(*(VA*)e + 1272))(e);	// IDA ScriptPositionComponent::applyComponentTo
+	return (*(int(__fastcall**)(Actor*))(*(VA*)e + 1288))(e);	// IDA ScriptPositionComponent::applyComponentTo
 }
 
 VA Actor::sgetUniqueID(Actor* e) {
@@ -1598,7 +1045,20 @@ VA Actor::sgetUniqueID(Actor* e) {
 
 bool Actor::sremove(Actor* e) {
 	(*(void(**)(Actor*))(*(VA*)e + 88))(e);			// IDA Actor::remove , check vtable
-	return *((char*)e + 905) == 1;
+	return *((char*)e + 945) == 1;
+}
+
+bool Actor::shurt(Actor* e, Actor* se, ActorDamageCause c, int count, bool knock, bool ignite) {
+	ActorDamageByActorSource dmg;
+	if (se != NULL) {
+		SYMCALL(VA, MSSYM_B2QQE250ActorDamageByActorSourceB2AAA4QEAAB1AA9AEAVActorB2AAE18W4ActorDamageCauseB3AAAA1Z, &dmg, se, c);
+	}
+	else {
+		((VA*)&dmg)[0] = (VA)SYM_POINT(VA, MSSYM_B3QQUE187ActorDamageSourceB2AAA26BB1A);
+		((VA*)&dmg)[1] = (VA)c;
+	}
+	auto _hurt = *(bool(**)(Actor*, void*, int, bool, bool))(*(VA*)e + 0x798);		// IDA Actor::_hurt, check vtable
+	return _hurt(e, &dmg, count, knock, ignite);
 }
 
 Actor* Actor::sgetfromUniqueID(VA id) {
@@ -1616,7 +1076,7 @@ std::vector<VA*>* Actor::sgetEntities(int did, float x1, float y1, float z1, flo
 			return bs->getEntities((VA*)&rt);
 		}
 	}
-	return 0;
+	return NULL;
 }
 
 // Player相关
@@ -1649,6 +1109,21 @@ std::string Player::sgetUuid(Player* p) {
 	return p->getUuid()->toString();
 }
 
+std::string Player::sgetIPPort(Player* p) {
+	char v11[256];
+	char v12[256];
+	VA v4 = *(VA*)(*(VA*)(*(VA*)(p_ServerNetworkHandle + 64) + 32) + 440);
+	auto v5 = GetModuleHandleW(0);
+	((void(*)(VA))(v5 + 1433268))((VA)v11);
+	((void(*)(VA, VA, VA))(v5 + 1440164))(v4, (VA)v11, (VA)p + 2512);
+	((void(*)(VA, bool, VA))(v5 + 1433184))((VA)v11, 1, (VA)v12);
+	return std::string(v12);
+}
+
+void Player::saddLevel(Player* p, int lv) {
+	SYMCALL(void, MSSYM_B1QA9addLevelsB1AA6PlayerB2AAA6UEAAXHB1AA1Z, p, lv);
+}
+
 // 类属性相关方法
 static struct McMethods {
 	std::unordered_map<std::string, void*> mcMethods;
@@ -1675,10 +1150,13 @@ public:
 		mcMethods[m.ENTITY_GET_TYPEID] = &Actor::sgetEntityTypeId;
 		mcMethods[m.ENTITY_GET_UNIQUEID] = &Actor::sgetUniqueID;
 		mcMethods[m.ENTITY_REMOVE] = &Actor::sremove;
+		mcMethods[m.ENTITY_HURT] = &Actor::shurt;
 		mcMethods[m.LEVEL_GETFROM_UNIQUEID] = &Actor::sgetfromUniqueID;
 		mcMethods[m.LEVEL_GETSFROM_AABB] = &Actor::sgetEntities;
 		mcMethods[m.PLAYER_GET_HOTBAR_CONTAINER] = &Player::sgetHotbarContainer;
 		mcMethods[m.PLAYER_GET_UUID] = &Player::sgetUuid;
+		mcMethods[m.PLAYER_GET_IPPORT] = &Player::sgetIPPort;
+		mcMethods[m.PLAYER_ADD_LEVEL] = &Player::saddLevel;
 	}
 	void* getMcMethod(std::string methodname) {
 		return mcMethods[methodname];
@@ -1904,7 +1382,7 @@ static VA ONPLACEDBLOCK_SYMS[] = { 1, MSSYM_B1QA8mayPlaceB1AE11BlockSourceB2AAA4
 // 玩家破坏方块
 static bool _CS_ONDESTROYBLOCK(void* _this, BlockPos* pBlkpos) {
 	auto pPlayer = *reinterpret_cast<Player**>(reinterpret_cast<VA>(_this) + 8);
-	auto pBlockSource = *(BlockSource**)(*((VA*)_this + 1) + 800);
+	auto pBlockSource = pPlayer->getRegion();					// IDA GameMode::_destroyBlockInternal
 	auto pBlk = pBlockSource->getBlock(pBlkpos);
 	Events e;
 	e.type = EventType::onDestroyBlock;
@@ -1957,7 +1435,7 @@ static bool _CS_ONCHESTBLOCKUSE(void* _this, Player* pPlayer, BlockPos* pBlkpos)
 	de.releaseAll();
 	return ret;
 }
-static VA ONSTARTOPENCHEST_SYMS[] = { 1, MSSYM_B1QA3useB1AE10ChestBlockB2AAA4UEBAB1UE11NAEAVPlayerB2AAE12AEBVBlockPosB3AAAA1Z,
+static VA ONSTARTOPENCHEST_SYMS[] = { 1, MSSYM_B1QA3useB1AE10ChestBlockB2AAA4UEBAB1UE11NAEAVPlayerB2AAE12AEBVBlockPosB2AAA1EB1AA1Z,
 	(VA)_CS_ONCHESTBLOCKUSE };
 
 // 玩家开桶准备
@@ -1986,7 +1464,7 @@ static bool _CS_ONBARRELBLOCKUSE(void* _this, Player* pPlayer, BlockPos* pBlkpos
 	de.releaseAll();
 	return ret;
 }
-static VA ONSTARTOPENBARREL_SYMS[] = {1, MSSYM_B1QA3useB1AE11BarrelBlockB2AAA4UEBAB1UE11NAEAVPlayerB2AAE12AEBVBlockPosB3AAAA1Z,
+static VA ONSTARTOPENBARREL_SYMS[] = {1, MSSYM_B1QA3useB1AE11BarrelBlockB2AAA4UEBAB1UE11NAEAVPlayerB2AAE12AEBVBlockPosB2AAA1EB1AA1Z,
 	(VA)_CS_ONBARRELBLOCKUSE};
 
 // 玩家关闭箱子
@@ -2048,8 +1526,8 @@ static VA ONSTOPOPENBARREL_SYMS[] = {1, MSSYM_B1QA8stopOpenB1AE16BarrelBlockActo
 // 玩家放入取出数量
 static void _CS_ONSETSLOT(LevelContainerModel* a1, VA a2) {
 	auto original = (void(*)(LevelContainerModel*, VA)) * getOriginalData(_CS_ONSETSLOT);
-	VA v3 = *((VA*)a1 + 26);				// IDA LevelContainerModel::_getContainer
-	BlockSource* bs = *(BlockSource**)(*(VA*)(v3 + 808) + 72);
+	VA* v3 = *((VA**)a1 + 26);							// IDA LevelContainerModel::_getContainer
+	BlockSource* bs = *(BlockSource**)(v3[106] + 80);
 	BlockPos* pBlkpos = (BlockPos*)((char*)a1 + 216);
 	Block* pBlk = bs->getBlock(pBlkpos);
 	short id = pBlk->getLegacyBlock()->getBlockItemID();
@@ -2436,24 +1914,19 @@ static void _CS_ONLEVELEXPLODE(VA _this, BlockSource* a2, Actor* a3, Vec3* a4, f
 	de.releaseAll();
 }
 // 重生锚爆炸监听
-static bool _CS_SETRESPWNEXPLOREDE(Player* pPlayer, BlockPos* a2, BlockSource* a3, Level* a4) {
+static bool _CS_SETRESPWNEXPLOREDE(Player* pPlayer, BlockPos* a2, BlockSource* a3, Level* a4) { // IDA
 	auto original = (bool(*)(Player*, BlockPos*, BlockSource*, Level*)) * getOriginalData(_CS_SETRESPWNEXPLOREDE);
 	auto v8 = a3->getBlock(a2);
-	auto v9 = (VA*)*((VA*)v8 + 2);
-	VA qwt = SYM_OBJECT(VA, (MSSYM_B1QE19RespawnAnchorChargeB1AE13VanillaStatesB2AAA23VB2QDE16ItemStateVariantB1AA1HB2AAA1B + 8));
-	if (!*(char*)(*v9 + 32 * qwt + 460)
-		|| !(((unsigned int)*((unsigned __int16*)v8 + 4) >> (*(char*)(*v9 + 32 * qwt + 444)
-			- *(char*)(*v9 + 32 * qwt + 448)
-			+ 1)) & (0xFFFF >> (*(char*)(*v9 + 32 * qwt + 440)
-				- *(char*)(*v9 + 32 * qwt + 448)))))
+	if (SYMCALL(int, MSSYM_B3QQDA8getStateB1AA1HB1AA5BlockB2AAE18QEBAHAEBVItemStateB3AAAA1Z,
+		v8, SYM_POINT(VA, MSSYM_B1QE19RespawnAnchorChargeB1AE13VanillaStatesB2AAA23VB2QDE16ItemStateVariantB1AA1HB2AAA1B)) <= 0)
 	{
 		return original(pPlayer, a2, a3, a4);
 	}
 	struct VA_tmp { VA v; };
 	if (a3->getDimensionId() != 1) {
-		if (!*(char*)(*((VA*)pPlayer + 102) + 7664)) {
+		if (!*(char*)(*((VA*)pPlayer + 107) + 7736)) {
 			float pw = SYM_OBJECT(float, MSSYM_B2UUA4realB1AA840a00000);
-			if (!*(char*)&(((VA_tmp*)a4)[958].v)) {
+			if (!*(char*)&(((VA_tmp*)a4)[967].v)) {
 				if (pw != 0.0) {
 					std::string blkname = v8->getLegacyBlock()->getFullName();
 					Events e;
@@ -2490,9 +1963,9 @@ static VA ONLEVELEXPLODE_SYMS[] = { 2, MSSYM_B1QA7explodeB1AA5LevelB2AAE20QEAAXA
 	MSSYM_B1QE11trySetSpawnB1AE18RespawnAnchorBlockB2AAA2CAB1UE11NAEAVPlayerB2AAE12AEBVBlockPosB2AAE15AEAVBlockSourceB2AAA9AEAVLevelB3AAAA1Z,
 	(VA)_CS_SETRESPWNEXPLOREDE };
 
-// 玩家切换护甲（不含主副手）
-static VA _CS_ONSETARMOR(Player* p, int slot, ItemStack *i) {
-	auto original = (VA(*)(Player *, int, ItemStack *)) * getOriginalData(_CS_ONSETARMOR);
+// 玩家切换护甲
+static VA _CS_ONSETARMOR(Player* p, int slot, ItemStack* i) {
+	auto original = (VA(*)(Player*, int, ItemStack*)) * getOriginalData(_CS_ONSETARMOR);
 	if (checkIsPlayer(p)) {
 		ItemStack* pItemStack = i;
 		auto nid = pItemStack->getId();
@@ -2512,6 +1985,7 @@ static VA _CS_ONSETARMOR(Player* p, int slot, ItemStack *i) {
 		autoByteCpy(&de.itemname, nname.c_str());
 		de.itemaux = naux;
 		de.slot = slot;
+		de.slottype = 0;
 		e.data = &de;
 		bool ret = runCscode(ActEvent.ONEQUIPPEDARMOR, ActMode::BEFORE, e);
 		if (ret) {
@@ -2526,8 +2000,47 @@ static VA _CS_ONSETARMOR(Player* p, int slot, ItemStack *i) {
 	}
 	return original(p, slot, i);
 }
-static VA ONSETARMOR_SYMS[] = { 1, MSSYM_B1QA8setArmorB1AE12ServerPlayerB2AAE16UEAAXW4ArmorSlotB2AAE13AEBVItemStackB3AAAA1Z,
-	(VA)_CS_ONSETARMOR };
+// 玩家切换主副手
+static VA _CS_ONSETCARRIEDITEM(VA v1, Player* p, ItemStack* v3, ItemStack* i, int slot) {
+	auto original = (VA(*)(VA, Player*, ItemStack*, ItemStack*, int)) * getOriginalData(_CS_ONSETCARRIEDITEM);
+	if (checkIsPlayer(p)) {
+		ItemStack* pItemStack = i;
+		auto nid = pItemStack->getId();
+		auto naux = pItemStack->getAuxValue();
+		auto nsize = pItemStack->getStackSize();
+		auto nname = std::string(pItemStack->getName());
+		auto pPlayer = p;
+		Events e;
+		e.type = EventType::onEquippedArmor;
+		e.mode = ActMode::BEFORE;
+		e.result = 0;
+		EquippedArmorEvent de;
+		addPlayerInfo(&de, pPlayer);
+		de.pplayer = pPlayer;
+		de.itemid = nid;
+		de.itemcount = nsize;
+		autoByteCpy(&de.itemname, nname.c_str());
+		de.itemaux = naux;
+		de.slot = slot;
+		de.slottype = 1;
+		e.data = &de;
+		bool ret = runCscode(ActEvent.ONEQUIPPEDARMOR, ActMode::BEFORE, e);
+		if (ret) {
+			VA ret = original(v1, p, v3, i, slot);
+			e.result = true;
+			e.mode = ActMode::AFTER;
+			runCscode(ActEvent.ONEQUIPPEDARMOR, ActMode::AFTER, e);
+			return ret;
+		}
+		de.releaseAll();
+		return 0;
+	}
+	return original(v1, p, v3, i, slot);
+}
+static VA ONSETARMOR_SYMS[] = { 2, MSSYM_B1QA8setArmorB1AE12ServerPlayerB2AAE16UEAAXW4ArmorSlotB2AAE13AEBVItemStackB3AAAA1Z,
+	(VA)_CS_ONSETARMOR,
+	MSSYM_B1QE27sendActorCarriedItemChangedB1AE21ActorEventCoordinatorB2AAE14QEAAXAEAVActorB2AAE16AEBVItemInstanceB2AAE111W4HandSlotB3AAAA1Z,
+	(VA)_CS_ONSETCARRIEDITEM };
 
 //玩家升级
 static void _CS_ONLEVELUP(Player* pl, int a1) {
@@ -2719,8 +2232,6 @@ static void initExtraApi() {
 	extraApi["removePlayerSidebar"] = &removePlayerSidebar;
 	extraApi["getPlayerPermissionAndGametype"] = &getPlayerPermissionAndGametype;
 	extraApi["setPlayerPermissionAndGametype"] = &setPlayerPermissionAndGametype;
-	extraApi["getExBlock"] = &getExBlock;
-	extraApi["setExBlock"] = &setExBlock;
 #endif
 }
 
@@ -2770,6 +2281,34 @@ bool cshook(int rva, void* hook, void** org) {
 
 bool csunhook(void* hook, void** org) {
 	return UnHook<void*>(org, hook) == HookErrorCode::ERR_SUCCESS;
+}
+
+bool readHardMemory(int rva, unsigned char* odata, int size) {
+	//修改页都保护属性
+	DWORD dwOldProtect1, dwOldProtect2 = PAGE_READONLY;
+	MEMORY_BASIC_INFORMATION mbi;
+	auto x = SYM_POINT(char, rva);
+	SIZE_T num = 1;
+	VirtualQuery(x, &mbi, sizeof(mbi));
+	VirtualProtectEx(GetCurrentProcess(), x, size, dwOldProtect2, &dwOldProtect1);
+	ReadProcessMemory(GetCurrentProcess(),
+		x, odata, size, &num);
+	//恢复页都保护属性
+	return VirtualProtectEx(GetCurrentProcess(), x, size, dwOldProtect1, &dwOldProtect2);
+}
+
+bool writeHardMemory(int rva, unsigned char* ndata, int size) {
+	//修改页都保护属性
+	DWORD dwOldProtect1, dwOldProtect2 = PAGE_READWRITE;
+	MEMORY_BASIC_INFORMATION mbi;
+	auto x = SYM_POINT(char, rva);
+	SIZE_T num = 1;
+	VirtualQuery(x, &mbi, sizeof(mbi));
+	VirtualProtectEx(GetCurrentProcess(), x, size, dwOldProtect2, &dwOldProtect1);
+	WriteProcessMemory(GetCurrentProcess(),
+		x, ndata, size, &num);
+	//恢复页都保护属性
+	return VirtualProtectEx(GetCurrentProcess(), x, size, dwOldProtect1, &dwOldProtect2);
 }
 
 

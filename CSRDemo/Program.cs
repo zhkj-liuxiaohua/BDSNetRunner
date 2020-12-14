@@ -133,7 +133,10 @@ namespace CSRDemo
 								cse.hurt(fe.playerPtr/*IntPtr.Zero*/, ActorDamageCause.EntityAttack, 10, false, false);
 							}
 						}
-					}
+					} else if (fe.selected == "5")
+                    {
+						pl.addLevel(3);
+                    }
 				}
                 else{
                     Console.WriteLine("玩家 {0} 取消了表单 id={1}", fe.playername, fe.formid);
@@ -369,7 +372,8 @@ namespace CSRDemo
 						tformid = api.sendSimpleForm((string)uuid,
 											   "测试选项",
 											   "test choose:",
-											   "[\"基本组件\",\"物品栏组件\",\"组件设置\", \"范围检测并清理\",\"范围检测并攻击\"]");
+											   "[\"基本组件\",\"物品栏组件\",\"组件设置\", \"范围检测并清理\",\"范围检测并攻击\"," +
+											   "\"玩家等级+3\" ]");
 						Console.WriteLine("创建需自行保管的表单，id={0}", tformid);
 						// 非社区内容测试
 						if (api.COMMERCIAL)

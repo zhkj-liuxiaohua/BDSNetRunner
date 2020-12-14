@@ -578,10 +578,13 @@ namespace CSR
         const string PLAYER_GET_HOTBAR_CONTAINER = "player.get_hotbar_container";
         const string PLAYER_GET_UUID = "player.get_uuid";
         const string PLAYER_GET_IPPORT = "player.get_ipport";
+        const string PLAYER_ADD_LEVEL = "player.add_level";
 
+        protected delegate bool PADDLEVEL(IntPtr p, int lv);
         static AGET pgetHotbarContainer;
         static AGET pgetUuid;
         static AGET pgetIPPort;
+        static PADDLEVEL paddLevel;
         static bool playerApiInited = false;
 
         static private bool initPlayerAPI(MCCSAPI api)
@@ -593,6 +596,7 @@ namespace CSR
                     pgetHotbarContainer = api.ConvertComponentFunc<AGET>(PLAYER_GET_HOTBAR_CONTAINER);
                     pgetUuid = api.ConvertComponentFunc<AGET>(PLAYER_GET_UUID);
                     pgetIPPort = api.ConvertComponentFunc<AGET>(PLAYER_GET_IPPORT);
+                    paddLevel = api.ConvertComponentFunc<PADDLEVEL>(PLAYER_ADD_LEVEL);
                     playerApiInited = true;
                 }
                 else
@@ -643,5 +647,16 @@ namespace CSR
                 }
                 return null;
             } }
+        /// <summary>
+        /// 增加玩家等级
+        /// </summary>
+        /// <param name="lv"></param>
+        public void addLevel(int lv)
+        {
+            if (ptr != null && ptr != IntPtr.Zero)
+            {
+                paddLevel(ptr, lv);
+            }
+        }
     }
 }

@@ -3,6 +3,7 @@
 #include "THook.h"
 #include "RVAs.hpp"
 #include <json/json.h>
+#include "Component.h"
 
 // 方块坐标结构体
 #pragma region Blocks 定义方块结构体
@@ -21,11 +22,11 @@ struct BPos3 {
 struct BlockLegacy {
 	// 获取方块名
 	auto getFullName() const {				// IDA BlockLegacy::~BlockLegacy
-		return (std::string&) * (__int64*)((__int64)this + 112);
+		return (std::string&) * (__int64*)((__int64)this + 120);
 	}
 	// 获取方块ID号
-	auto getBlockItemID() const {			// IDA VanillaItems::initCreativeItemsCallback Item::beginCreativeGroup "itemGroup.name.planks"
-		short v3 = *(short*)((VA)this + 268);
+	auto getBlockItemID() const {			// IDA BlockLegacy::BlockLegacy VanillaItems::serverInitCreativeItemsCallback Item::beginCreativeGroup "itemGroup.name.planks"
+		short v3 = *(short*)((VA)this + 312);
 		if (v3 < 0x100) {
 			return v3;
 		}
@@ -43,15 +44,11 @@ struct BlockPos {
 struct Block {
 	// 获取源
 	const BlockLegacy* getLegacyBlock() const {			// IDA LegacyStructureTemplate::_mapToProperty "waterlogged"
-		return (BlockLegacy*)(**(VA**)((VA)this + 16));
+		return SYMCALL(BlockLegacy*, MSSYM_B1QE14getLegacyBlockB1AA5BlockB2AAE19QEBAAEBVBlockLegacyB2AAA2XZ, this);
 	}
 };
 
 struct BlockActor {
-	// 取方块
-	Block* getBlock() {
-		return *reinterpret_cast<Block**>(reinterpret_cast<VA>(this) + 16);
-	}
 	// 取方块位置
 	BlockPos* getPosition() {				// IDA BlockActor::BlockActor
 		return reinterpret_cast<BlockPos*>(reinterpret_cast<VA>(this) + 44);
@@ -67,7 +64,7 @@ struct BlockSource {
 	}
 	// 获取方块所处维度
 	int getDimensionId() {					// IDA Dimension::onBlockChanged
-		return *(int*)(*((VA*)this + 4) + 192);
+		return *(int*)(*((VA*)this + 4) + 200);
 	}
 	// 获取指定范围内所有实体
 	std::vector<VA*>* getEntities(VA *rect) {
@@ -79,7 +76,7 @@ struct BlockSource {
 struct Dimension {
 	// 获取方块源
 	VA getBlockSource() {					// IDA Level::tickEntities
-		return *((VA*)this + 9);
+		return *((VA*)this + 10);
 	}
 };
 
@@ -88,10 +85,6 @@ struct Level {
 	Dimension* getDimension(int did) {
 		return SYMCALL(Dimension*, MSSYM_B1QE12getDimensionB1AA5LevelB2AAE17QEBAPEAVDimensionB2AAA1VB2QDE11AutomaticIDB1AE10VDimensionB2AAA1HB3AAAA1Z,
 			this, did);
-	}
-	// 获取计分板
-	VA getScoreBoard() {				// IDA Level::removeEntityReferences
-		return *(VA*)((VA)this + 8280);
 	}
 };
 
@@ -161,10 +154,6 @@ struct Vec2 {
 	float y;
 };
 
-struct MobEffectInstance {
-	char fill[0x1C];
-};
-
 struct Actor {
 #pragma region 通用属性
 	// 导出API，获取穿戴信息，只读
@@ -223,6 +212,8 @@ struct Actor {
 	static VA sgetUniqueID(Actor*);
 	// 导出API，移除该实体
 	static bool sremove(Actor*);
+	// 导出API，模拟该实体产生一个源自另一实体的伤害
+	static bool shurt(Actor*, Actor*, ActorDamageCause, int, bool, bool);
 	// 导出API，根据查询ID反查实体指针
 	static Actor* sgetfromUniqueID(VA);
 	// 导出API，查询指定维度指定坐标范围内所有实体
@@ -230,8 +221,8 @@ struct Actor {
 #pragma endregion
 
 	// 取方块源
-	BlockSource* getRegion() {
-		return *reinterpret_cast<BlockSource**>(reinterpret_cast<VA>(this) + 414 * sizeof(void*));
+	BlockSource* getRegion() {						// IDA
+		return (BlockSource*)*((VA*)this + 105);
 	}
 
 	// 获取生物名称信息
@@ -252,7 +243,7 @@ struct Actor {
 
 	// 是否悬空
 	const BYTE isStand() {				// IDA MovePlayerPacket::MovePlayerPacket
-		return *reinterpret_cast<BYTE*>(reinterpret_cast<VA>(this) + 416);
+		return *reinterpret_cast<BYTE*>(reinterpret_cast<VA>(this) + 448);
 	}
 
 	// 获取生物当前所在坐标
@@ -263,27 +254,22 @@ struct Actor {
 
 	// 获取生物类型
 	std::string getTypeName() {
-		std::string actor_typename;
+		std::string actor_typename;					// IDA ActorCommandOrigin::getName CommandUtils::getActorName
 		SYMCALL(std::string&,
-			MSSYM_MD5_01064f7d893d9f9ef50acf1f931d1d79,
+			MSSYM_MD5_41a18e1578312643b066a562efefb36a,
 			&actor_typename, this);
 		return actor_typename;
 	}
 
 	// 获取实体类型
 	int getEntityTypeId() {
-		return SYMCALL(int,
-			MSSYM_B1QE15getEntityTypeIdB1AA5ActorB2AAA4UEBAB1QE12AW4ActorTypeB2AAA2XZ,
-			this);
-		//		if (t == 1)		// 未知类型，可能是玩家
-		//			return 319;
+		return sgetEntityTypeId(this);
 	}
 
 	// 获取查询用ID
 	VA* getUniqueID() {
 		return SYMCALL(VA*, MSSYM_B1QE11getUniqueIDB1AA5ActorB2AAE21QEBAAEBUActorUniqueIDB2AAA2XZ, this);
 	}
-
 	// 获取实体名称
 	std::string getEntityTypeName() {
 		std::string en_name;
@@ -292,39 +278,20 @@ struct Actor {
 			&en_name, getEntityTypeId());
 		return en_name;
 	}
-
-	// 更新属性
-	VA updateAttrs() {
-		return SYMCALL(VA, MSSYM_B2QUE18sendDirtyActorDataB1AA5ActorB2AAA7QEAAXXZ, this);
-	}
-	// 添加一个状态
-	VA addEffect(VA ef) {
-		return SYMCALL(VA, MSSYM_B1QA9addEffectB1AA5ActorB2AAE26QEAAXAEBVMobEffectInstanceB3AAAA1Z, this, ef);
-	}
 };
 
 struct Mob : Actor {
-	// 获取状态列表
-	std::vector<MobEffectInstance>* getEffects() {					// IDA Mob::addAdditionalSaveData
-		return (std::vector<MobEffectInstance>*)((VA*)this + 152);
-	}
-
 	// 获取装备容器
 	VA getArmor() {					// IDA Mob::addAdditionalSaveData
-		return VA(this) + 1400;
+		return VA(this) + 1472;
 	}
 	// 获取手头容器
 	VA getHands() {
-		return VA(this) + 1408;		// IDA Mob::readAdditionalSaveData
-	}
-	// 保存当前副手至容器
-	VA saveOffhand(VA hlist) {
-		return SYMCALL(VA, MSSYM_B1QE11saveOffhandB1AA3MobB2AAA4IEBAB1QA2AVB2QDA6uniqueB1UA3ptrB1AA8VListTagB2AAA1UB2QDA7defaultB1UA6deleteB1AA8VListTagB3AAAA3stdB3AAAA3stdB2AAA2XZ,
-			this, hlist);
+		return VA(this) + 1480;		// IDA Mob::readAdditionalSaveData
 	}
 	// 获取地图信息
 	VA getLevel() {					// IDA Mob::die
-		return *((VA*)((VA)this + 816));
+		return *((VA*)((VA)this + 856));
 	}
 };
 struct Player : Mob {
@@ -333,17 +300,21 @@ struct Player : Mob {
 	static std::string sgetHotbarContainer(Player*);
 	// 导出API，获取玩家uuid，只读
 	static std::string sgetUuid(Player*);
+	// 导出API，获取玩家网络IP和端口，只读
+	static std::string sgetIPPort(Player*);
+	// 导出API，增加玩家等级
+	static void saddLevel(Player*, int);
 #pragma endregion
 
 	// 取uuid
 	MCUUID* getUuid() {				// IDA ServerNetworkHandler::_createNewPlayer
-		return (MCUUID*)((char*)this + 2720);
+		return (MCUUID*)((char*)this + 2800);
 	}
 
 	// 根据地图信息获取玩家xuid
 	std::string& getXuid(VA level) {
 		return SYMCALL(std::string&, MSSYM_MD5_337bfad553c289ba4656ac43dcb60748,
-			level, (char*)this + 2720);
+			level, (char*)this + 2800);
 	}
 
 	// 重设服务器玩家名
@@ -354,64 +325,21 @@ struct Player : Mob {
 
 	// 获取网络标识符
 	VA getNetId() {
-		return (VA)this + 2432;		// IDA ServerPlayer::setPermissions
-	}
-
-	VA getContainerManager() {
-		return (VA)this + 2912;		// IDA Player::setContainerManager
+		return (VA)this + 2512;		// IDA ServerPlayer::setPermissions
 	}
 	// 获取背包
 	VA getSupplies() {				// IDA Player::add
-		return *(VA*)(*((VA*)this + 366) + 176);
+		return *(VA*)(*((VA*)this + 378) + 176);
 	}
-	// 获取末影箱
-	VA getEnderChestContainer() {
-		return SYMCALL(VA, MSSYM_B1QE22getEnderChestContainerB1AA6PlayerB2AAE27QEAAPEAVEnderChestContainerB2AAA2XZ, this);
-	}
-	// 设置一个装备
-	VA setArmor(int i, VA item) {
-		return SYMCALL(VA, MSSYM_B1QA8setArmorB1AE12ServerPlayerB2AAE16UEAAXW4ArmorSlotB2AAE13AEBVItemStackB3AAAA1Z, this, i, item);
-	}
-	// 设置副手
-	VA setOffhandSlot(VA item) {
-		return SYMCALL(VA, MSSYM_B1QE14setOffhandSlotB1AA6PlayerB2AAE18UEAAXAEBVItemStackB3AAAA1Z, this, item);
-	}
+
 	// 添加一个物品
 	void addItem(VA item) {
 		SYMCALL(VA, MSSYM_B1QA3addB1AA6PlayerB2AAA4UEAAB1UE14NAEAVItemStackB3AAAA1Z, this, item);
 	}
-	// 获取当前选中的框位置
-	int getSelectdItemSlot() {			// IDA Player::getSelectedItem
-		VA v1 = *((VA*)this + 366);
-		return *(unsigned int*)(v1 + 16);
-	}
-	// 获取当前物品
-	VA getSelectedItem() {
-		VA x = SYMCALL(VA, MSSYM_B1QE15getSelectedItemB1AA6PlayerB2AAE17QEBAAEBVItemStackB2AAA2XZ,
-			this);
-		return x;
-	}
-	// 获取游戏时命令权限
-	char getPermission() {						// IDA ServerPlayer::setPermissions
-		return **(char**)((VA)this + 2112);
-	}
-	// 设置游戏时命令权限
-	void setPermission(char m) {
-		SYMCALL(void, MSSYM_B1QE14setPermissionsB1AE12ServerPlayerB2AAE29UEAAXW4CommandPermissionLevelB3AAAA1Z,
-			this, m);
-	}
-	// 获取游戏时游玩权限
-	char getPermissionLevel() {						// IDA Abilities::setPlayerPermissions
-		return (*(char**)((VA)this + 2112))[1];
-	}
-	// 设置游戏时游玩权限
-	void setPermissionLevel(char m) {
-		SYMCALL(void, MSSYM_B1QE20setPlayerPermissionsB1AA9AbilitiesB2AAE28QEAAXW4PlayerPermissionLevelB3AAAA1Z,
-			(VA)this + 2112, m);
-	}
+
 	// 更新所有物品列表
 	void updateInventory() {
-		VA itm = (VA)this + 4472;				// IDA Player::drop
+		VA itm = (VA)this + 4568;				// IDA Player::drop
 		SYMCALL(VA, MSSYM_B1QE23forceBalanceTransactionB1AE27InventoryTransactionManagerB2AAA7QEAAXXZ, itm);
 	}
 	// 发送数据包
@@ -447,33 +375,9 @@ struct ItemStackBase {
 	ItemStackBase* mChargedItem;
 	VA uk;
 public:
-	VA save() {
-		VA* cp = new VA[8]{ 0 };
-		return SYMCALL(VA, MSSYM_MD5_e02d5851c93a43bfe24a4396ecb87cde, this, cp);
-	}
-#if (COMMERCIAL)
-	Json::Value toJson() {
-		VA t = save();
-		Json::Value jv = (*(Tag**)t)->toJson();
-		(*(Tag**)t)->clearAll();
-		*(VA*)t = 0;
-		delete (VA*)t;
-		return jv;
-	}
-	void fromJson(Json::Value& jv) {
-		VA t = Tag::fromJson(jv);
-		SYMCALL(VA, MSSYM_B1QA7fromTagB1AA9ItemStackB2AAA2SAB1QA3AV1B1AE15AEBVCompoundTagB3AAAA1Z, this, *(VA*)t);
-		(*(Tag**)t)->clearAll();
-		*(VA*)t = 0;
-		delete (VA*)t;
-	}
-	void fromTag(VA t) {
-		SYMCALL(VA, MSSYM_B1QA7fromTagB1AA9ItemStackB2AAA2SAB1QA3AV1B1AE15AEBVCompoundTagB3AAAA1Z, this, t);
-	}
-#endif
 	bool getFromId(short id, short aux, char count) {
 		memcpy(this, SYM_POINT(void, MSSYM_B1QA5EMPTYB1UA4ITEMB1AA9ItemStackB2AAA32V1B1AA1B), 0x90);
-		bool ret = SYMCALL(bool, MSSYM_B2QUA7setItemB1AE13ItemStackBaseB2AAA4IEAAB1UA2NHB1AA1Z, this, id);
+		bool ret = SYMCALL(bool, MSSYM_B2QUA7setItemB1AE13ItemStackBaseB2AAA4IEAAB1UA2NHB1UA1NB1AA1Z, this, id, false);
 		mCount = count;
 		mAuxValue = aux;
 		mValid = true;
@@ -496,7 +400,7 @@ struct ItemStack : ItemStackBase {
 	}
 	// 取物品名称
 	std::string getName() {
-		std::string str;
+		std::string str;				// IDA ItemStackBase::getName
 		SYMCALL(__int64,
 			MSSYM_MD5_6d581a35d7ad70fd364b60c3ebe93394,
 			this, &str);
@@ -520,73 +424,6 @@ struct LevelContainerModel {
 	Player* getPlayer() {
 		return ((Player**)this)[26];
 	}
-};
-
-
-struct Container {
-	VA vtable;
-	// 获取容器内所有物品
-	VA getSlots(std::vector<ItemStack*>* s) {
-		return SYMCALL(VA, MSSYM_B1QA8getSlotsB1AA9ContainerB2AAA4UEBAB1QA2BVB2QDA6vectorB1AE13PEBVItemStackB2AAA1VB2QDA9allocatorB1AE13PEBVItemStackB3AAAA3stdB3AAAA3stdB2AAA2XZ,
-			this, s);
-	}
-
-};
-
-struct SimpleContainer : Container {
-	// 获取一个指定框内物品
-	ItemStack* getItem(int slot) {
-		return SYMCALL(ItemStack*, MSSYM_B1QA7getItemB1AE15SimpleContainerB2AAE17UEBAAEBVItemStackB2AAA1HB1AA1Z, this, slot);
-	}
-	// 设置一个指定框内的物品
-	VA setItem(int slot, ItemStack* item) {
-		return SYMCALL(VA, MSSYM_B1QA7setItemB1AE15SimpleContainerB2AAE19UEAAXHAEBVItemStackB3AAAA1Z,
-			this, slot, item);
-	}
-};
-
-struct FillingContainer : Container {
-	// 格式化容器所有物品至tag
-	VA save(VA tag) {
-		return SYMCALL(VA, MSSYM_B1QA4saveB1AE16FillingContainerB2AAA4QEAAB1QA2AVB2QDA6uniqueB1UA3ptrB1AA8VListTagB2AAA1UB2QDA7defaultB1UA6deleteB1AA8VListTagB3AAAA3stdB3AAAA3stdB2AAA2XZ,
-			this, tag);
-	}
-	// 设置容器中指定位置的物品
-	VA setItem(int i, VA item) {
-		return SYMCALL(VA, MSSYM_B1QA7setItemB1AE16FillingContainerB2AAE19UEAAXHAEBVItemStackB3AAAA1Z, this, i, item);
-	}
-};
-
-struct IContainerManager {
-	VA vtable;
-};
-
-struct PlayerInventoryProxy {
-	VA vtable;
-	VA vtable2;
-	int mSelected;
-	char uk1[4];
-	ItemStack mInfiniteItem;
-	char mSelectedContainerId;
-	char uk2[7];
-	VA mInventory;
-	std::vector<ItemStack> mComplexItems;
-	std::weak_ptr<VA> mHudContainerManager;
-};
-
-struct ContainerItemStack
-	:ItemStack {
-
-};
-
-struct ContainerManagerModel {
-	// 取开容者
-	Player* getPlayer() {				// IDA ContainerManagerModel::ContainerManagerModel
-		return *reinterpret_cast<Player**>(reinterpret_cast<VA>(this) + 8);
-	}
-};
-struct LevelContainerManagerModel
-	:ContainerManagerModel {
 };
 
 #pragma endregion

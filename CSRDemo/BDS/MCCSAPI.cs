@@ -135,7 +135,7 @@ namespace CSR
 		private delegate bool RENAMEBYUUIDFUNC(string uuid, string newName);
 		private RENAMEBYUUIDFUNC creNameByUuid, csetPlayerAbilities, csetPlayerTempAttributes,
 			csetPlayerMaxAttributes, csetPlayerItems, caddPlayerItemEx, csetPlayerEffects,
-			ctalkAs, cruncmdAs, cdisconnectClient, csetPlayerPermissionAndGametype;
+			ctalkAs, cruncmdAs, cdisconnectClient, csendText, csetPlayerPermissionAndGametype;
 		private delegate Std_String GETPLAYERABILITIESFUNC(string uuid);
 		private GETPLAYERABILITIESFUNC cgetPlayerAbilities, cgetPlayerAttributes, cgetPlayerMaxAttributes,
 			cgetPlayerItems, cgetPlayerSelectedItem, cgetPlayerEffects, cselectPlayer, cgetPlayerPermissionAndGametype;
@@ -159,6 +159,8 @@ namespace CSR
 		private SETPLAYERSIDEBARFUNC csetPlayerSidebar;
 		private delegate int GETSCOREBOARDVALUEFUNC(string uuid, string objname);
 		private GETSCOREBOARDVALUEFUNC cgetscoreboardValue;
+		private delegate bool SETSCOREBOARDVALUEFUNC(string uuid, string objname, int count);
+		private SETSCOREBOARDVALUEFUNC csetscoreboardValue;
 		private delegate IntPtr GETEXTRAAPI(string apiname);
 		private GETEXTRAAPI cgetExtraAPI;
 
@@ -216,6 +218,7 @@ namespace CSR
 			ctalkAs = Invoke<RENAMEBYUUIDFUNC>("talkAs");
 			cruncmdAs = Invoke<RENAMEBYUUIDFUNC>("runcmdAs");
 			cdisconnectClient = Invoke<RENAMEBYUUIDFUNC>("disconnectClient");
+			csendText = Invoke<RENAMEBYUUIDFUNC>("sendText");
 			csendSimpleForm = Invoke<SENDSIMPLEFORMFUNC>("sendSimpleForm");
 			csendModalForm = Invoke<SENDMODALFORMFUNC>("sendModalForm");
 			csendCustomForm = Invoke<SENDCUSTOMFORMFUNC>("sendCustomForm");
@@ -223,6 +226,7 @@ namespace CSR
 			cselectPlayer = Invoke<GETPLAYERABILITIESFUNC>("selectPlayer");
 			caddPlayerItem = Invoke<ADDPLAYERITEMFUNC>("addPlayerItem");
 			cgetscoreboardValue = Invoke<GETSCOREBOARDVALUEFUNC>("getscoreboardValue");
+			csetscoreboardValue = Invoke<SETSCOREBOARDVALUEFUNC>("setscoreboardValue");
 			ccshook = Invoke<CSHOOKFUNC>("cshook");
 			ccsunhook = Invoke<CSUNHOOKFUNC>("csunhook");
 			cdlsym = Invoke<DLSYMFUNC>("dlsym");
@@ -723,6 +727,17 @@ namespace CSR
 		}
 
 		/// <summary>
+		/// 发送一个原始显示文本给玩家
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <param name="msg">文本内容，空白内容则不予发送</param>
+		/// <returns>是否发送成功</returns>
+		public bool sendText(string uuid, string msg)
+        {
+			return (csendText != null) && csendText(uuid, msg);
+		}
+
+		/// <summary>
 		/// 向指定的玩家发送一个简单表单
 		/// </summary>
 		/// <param name="uuid">在线玩家的uuid字符串</param>
@@ -827,7 +842,17 @@ namespace CSR
 			return (cgetscoreboardValue != null) ? cgetscoreboardValue(uuid, objname) :
 				0;
         }
-
+		/// <summary>
+		/// 设置指定玩家指定计分板上的数值
+		/// </summary>
+		/// <param name="uuid">在线玩家的uuid字符串</param>
+		/// <param name="objname">计分板登记的名称，若不存在则自动添加</param>
+		/// <param name="count">待设定的目标值</param>
+		/// <returns>是否设置成功</returns>
+		public bool setscoreboard(string uuid, string objname, int count)
+        {
+			return csetscoreboardValue != null && csetscoreboardValue(uuid, objname, count);
+		}
 
 		// 底层相关
 

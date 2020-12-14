@@ -58,8 +58,21 @@ struct ScoreboardIdentityRef {
 	}
 };
 struct Scoreboard {
-	auto getobject(std::string* str) {
-		return SYMCALL(Objective*, MSSYM_MD5_844f126769868c7d0ef42725c3859954, this, str);
+	VA getObjective(std::string x) {
+		return SYMCALL(VA, MSSYM_MD5_844f126769868c7d0ef42725c3859954,
+			this, x);
+	}
+	VA addObjective(std::string x, std::string t) {
+		std::string d = "dummy";
+		auto v13 = GetModuleHandleW(0);
+		VA v15 = ((VA(*)(VA, VA))(v13 + 4688112))((VA)this, (VA)&d);
+		VA result = ((VA(*)(VA, VA, VA, VA))(v13 + 4687888))((VA)this, (VA)&x, (VA)&t, v15);
+		return result;
+	}
+	VA createActorScoreboardId(Actor* a) {
+		auto v12 = GetModuleHandleW(0);
+		VA result = ((VA(*)(VA, VA))(v12 + 4692228))((VA)this, (VA)a);
+		return result;
 	}
 	auto getScoreboardId(std::string* str) {
 		return SYMCALL(ScoreboardId*, MSSYM_MD5_ecded9d31b4a1c24ba985b0a377bef64, this, str);
@@ -86,8 +99,10 @@ struct Scoreboard {
 		return SYMCALL(ScoreboardIdentityRef*, MSSYM_B1QE24getScoreboardIdentityRefB1AE10ScoreboardB2AAE29QEAAPEAVScoreboardIdentityRefB2AAE16AEBUScoreboardIdB3AAAA1Z, this, a2);
 	}
 	//bool«Î…Ë÷√Œ™1; a6=0 set,a6=1,add,a6=2,remove
-	auto modifiedscores(bool* a2, ScoreboardId* a3, Objective* a4, int a5, unsigned __int8 a6) {
-		return SYMCALL(int, MSSYM_B1QE17modifyPlayerScoreB1AE10ScoreboardB2AAA8QEAAHAEAB1UE17NAEBUScoreboardIdB2AAE13AEAVObjectiveB2AAE25HW4PlayerScoreSetFunctionB3AAAA1Z, this, a2, a3, a4, a5, a6);
+	int modifyPlayerScore(ScoreboardId* a3, Objective* a4, int count) {
+		bool a2 = true;
+		return SYMCALL(int, MSSYM_B1QE17modifyPlayerScoreB1AE10ScoreboardB2AAA8QEAAHAEAB1UE17NAEBUScoreboardIdB2AAE13AEAVObjectiveB2AAE25HW4PlayerScoreSetFunctionB3AAAA1Z,
+			this, &a2, a3, a4, count, 0);
 	}
 };
 
