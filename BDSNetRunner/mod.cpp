@@ -790,6 +790,7 @@ std::string Actor::sgetArmorContainer(Actor* e) {
 			ji["Slot"] = i;
 			ji["item"] = pa->getName();
 			ji["id"] = pa->getId();
+			ji["rawnameid"] = pa->getRawNameId();
 			ji["count"] = pa->mCount;
 			jv.append(ji);
 		}
@@ -877,6 +878,7 @@ std::string Actor::sgetHandContainer(Actor* e) {
 			ji["Slot"] = i;
 			ji["item"] = h->getName();
 			ji["id"] = h->getId();
+			ji["rawnameid"] = h->getRawNameId();
 			ji["count"] = h->mCount;
 			jv.append(ji);
 		}
@@ -945,6 +947,7 @@ std::string Actor::sgetInventoryContainer(Actor* e) {
 			ji["Slot"] = i;
 			ji["item"] = h->getName();
 			ji["id"] = h->getId();
+			ji["rawnameid"] = h->getRawNameId();
 			ji["count"] = h->mCount;
 			jv.append(ji);
 		}
@@ -1096,6 +1099,7 @@ std::string Player::sgetHotbarContainer(Player* p) {
 				ji["Slot"] = i;
 				ji["item"] = h->getName();
 				ji["id"] = h->getId();
+				ji["rawnameid"] = h->getRawNameId();
 				ji["count"] = h->mCount;
 				jv.append(ji);
 			}
@@ -1111,7 +1115,7 @@ std::string Player::sgetUuid(Player* p) {
 
 std::string Player::sgetIPPort(Player* p) {
 	char v11[256];
-	char v12[256];
+	char v12[256]{0};
 	VA v4 = *(VA*)(*(VA*)(*(VA*)(p_ServerNetworkHandle + 64) + 32) + 440);
 	auto v5 = GetModuleHandleW(0);
 	((void(*)(VA))(v5 + 1433268))((VA)v11);
@@ -2221,7 +2225,6 @@ static void initExtraApi() {
 	extraApi["setPlayerItems"] = &setPlayerItems;
 	extraApi["getPlayerSelectedItem"] = &getPlayerSelectedItem;
 	extraApi["addPlayerItemEx"] = &addPlayerItemEx;
-	extraApi["addPlayerItem"] = &addPlayerItem;
 	extraApi["getPlayerEffects"] = &getPlayerEffects;
 	extraApi["setPlayerEffects"] = &setPlayerEffects;
 	extraApi["setPlayerBossBar"] = &setPlayerBossBar;

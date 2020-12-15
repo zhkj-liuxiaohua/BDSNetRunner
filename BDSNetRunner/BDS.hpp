@@ -406,6 +406,13 @@ struct ItemStack : ItemStackBase {
 			this, &str);
 		return str;
 	}
+	// 取物品命名空间标识
+	std::string getRawNameId() {
+		std::string str;
+		SYMCALL(VA, MSSYM_MD5_2f9d68ca736b0da0c26f063f568898bc,
+			this, &str);
+		return str;
+	}
 	// 取容器内数量
 	int getStackSize() {			// IDA ContainerModel::networkUpdateItem
 		return *((char*)this + 34);
