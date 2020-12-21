@@ -161,6 +161,8 @@ namespace CSR
 		private GETSCOREBOARDVALUEFUNC cgetscoreboardValue;
 		private delegate bool SETSCOREBOARDVALUEFUNC(string uuid, string objname, int count);
 		private SETSCOREBOARDVALUEFUNC csetscoreboardValue;
+		private delegate bool SETSERVERMOTD(string motd, bool isShow);
+		private SETSERVERMOTD csetServerMotd;
 		private delegate IntPtr GETEXTRAAPI(string apiname);
 		private GETEXTRAAPI cgetExtraAPI;
 
@@ -227,6 +229,7 @@ namespace CSR
 			caddPlayerItem = Invoke<ADDPLAYERITEMFUNC>("addPlayerItem");
 			cgetscoreboardValue = Invoke<GETSCOREBOARDVALUEFUNC>("getscoreboardValue");
 			csetscoreboardValue = Invoke<SETSCOREBOARDVALUEFUNC>("setscoreboardValue");
+			csetServerMotd = Invoke<SETSERVERMOTD>("setServerMotd");
 			ccshook = Invoke<CSHOOKFUNC>("cshook");
 			ccsunhook = Invoke<CSUNHOOKFUNC>("csunhook");
 			cdlsym = Invoke<DLSYMFUNC>("dlsym");
@@ -853,6 +856,17 @@ namespace CSR
         {
 			return csetscoreboardValue != null && csetscoreboardValue(uuid, objname, count);
 		}
+		/// <summary>
+		/// 设置服务器的显示名信息<br/>
+		/// （注：服务器名称加载时机在地图完成载入之后）
+		/// </summary>
+		/// <param name="motd">新服务器显示名信息</param>
+		/// <param name="isShow">是否公开显示</param>
+		/// <returns>是否设置成功</returns>
+		public bool setServerMotd(string motd, bool isShow)
+        {
+			return csetServerMotd != null && csetServerMotd(motd, isShow);
+        }
 
 		// 底层相关
 

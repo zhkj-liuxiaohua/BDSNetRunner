@@ -323,7 +323,47 @@ namespace CSRDemo
 				}
 				return true;
 			});
+			// 活塞推方块监听
+			api.addBeforeActListener(EventKey.onPistonPush, x =>
+			{
+				Console.WriteLine("[CS] type = {0}, mode = {1}, result= {2}", x.type, x.mode, x.result);
+				var e = BaseEvent.getFrom(x) as PistonPushEvent;
+				if (e != null)
+				{
+					Console.WriteLine("活塞 {0} 于 {1} 的({2}, {3}, {4})处试图向 {5} 号方向推拽({6}, {7}, {8})处的 {9} 方块。",
+						e.blockname, e.dimension, e.position.x, e.position.y, e.position.z,
+						e.direction, e.targetposition.x, e.targetposition.y, e.position.z, e.targetblockname);
+					return true;
+				}
+				return true;
+			});
+			// 箱子合并监听
+			api.addAfterActListener(EventKey.onChestPair, x =>
+			{
+				Console.WriteLine("[CS] type = {0}, mode = {1}, result= {2}", x.type, x.mode, x.result);
+				var e = BaseEvent.getFrom(x) as ChestPairEvent;
+				if (e != null)
+				{
+					Console.WriteLine("箱子 {0} 于 {1} 的({2}, {3}, {4})处试图合并向({5}, {6}, {7})处的 {8} 箱子。",
+						e.blockname, e.dimension, e.position.x, e.position.y, e.position.z, e.targetposition.x, e.targetposition.y,
+						e.position.z, e.targetblockname);
+					return true;
+				}
+				return true;
+			});
 			/*
+			api.addBeforeActListener(EventKey.onMobSpawnCheck, x =>
+			{
+				Console.WriteLine("[CS] type = {0}, mode = {1}, result= {2}", x.type, x.mode, x.result);
+				var e = BaseEvent.getFrom(x) as MobSpawnCheckEvent;
+				if (e != null)
+				{
+					Console.WriteLine("生物 {0} 于 {1} 的({2}, {3}, {4})处试图检查生成规则。",
+						e.mobtype, e.dimension, e.XYZ.x, e.XYZ.y, e.XYZ.z);
+					return true;
+				}
+				return true;
+			});
 			// 玩家移动监听
 			api.addAfterActListener(EventKey.onMove, x => {
 				var e = BaseEvent.getFrom(x) as MoveEvent;
@@ -364,6 +404,8 @@ namespace CSRDemo
 					string str = "玩家 " + ae.playername + " 在 (" + ae.XYZ.x.ToString("F2") + "," +
 						ae.XYZ.y.ToString("F2") + "," + ae.XYZ.z.ToString("F2") + ") 处攻击了 " + ae.actortype + " 。";
 					Console.WriteLine(str);
+					// 社区api测试
+					api.setServerMotd(ae.playername + "发动了攻击", true);
 					//Console.WriteLine("list={0}", api.getOnLinePlayers())
 					CsPlayer p = new CsPlayer(api, ae.playerPtr);
 					var uuid = p.Uuid;

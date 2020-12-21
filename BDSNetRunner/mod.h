@@ -4,8 +4,9 @@
 // 社区版/商业版
 #define COMMERCIAL 0
 
-// 标识贡献者 05007
+// 标识贡献者 05007，kengwang
 #define MODULE_05007 1
+#define MODULE_KENGWANG 1
 
 extern void init();
 extern void exit();
@@ -80,6 +81,10 @@ MCCPPAPI bool setscoreboard(Player*, std::string, int);
 MCCSAPI bool setscoreboardValue(const char*, const char*, int);
 #endif
 
+#if MODULE_KENGWANG
+// 设置服务器的显示名信息
+MCCSAPI bool setServerMotd(const char*, bool);
+#endif
 
 #if (COMMERCIAL)
 // 调用原型：获取一个结构

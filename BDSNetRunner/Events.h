@@ -30,7 +30,10 @@ enum class EventType : UINT16 {
 	onAttack = 25,
 	onLevelExplode = 26,
 	onEquippedArmor = 27,
-	onLevelUp = 28
+	onLevelUp = 28,
+	onPistonPush = 29,
+	onChestPair = 30,
+	onMobSpawnCheck = 31
 };
 
 // 监听模式
@@ -66,6 +69,9 @@ struct ACTEVENT {
 	const std::string ONLEVELEXPLODE = u8"onLevelExplode";
 	const std::string ONEQUIPPEDARMOR = u8"onEquippedArmor";
 	const std::string ONLEVELUP = u8"onLevelUp";
+	const std::string ONPISTONPUSH = u8"onPistonPush";
+	const std::string ONCHESTPAIR = u8"onChestPair";
+	const std::string ONMOBSPAWNCHECK = u8"onMobSpawnCheck";
 #if (COMMERCIAL)
 	const std::string ONMOBHURT = u8"onMobHurt";
 	const std::string ONBLOCKCMD = u8"onBlockCmd";
@@ -580,5 +586,68 @@ public:
 	}
 	void releaseAll() {
 		((PlayerEvent*)this)->releaseAll();
+	}
+};
+
+struct ChestPairEvent {
+	char* dimension;		// 方块所处维度
+	char* blockname;		// 活塞方块名称
+	char* targetblockname;	// 被推方块名称
+	BPos3 position;			// 活塞方块所在位置
+	BPos3 targetposition;	// 被推目标方块所在位置
+	int dimensionid;		// 方块所处维度ID
+	short blockid;			// 活塞方块ID
+	short targetblockid;	// 被推目标方块ID
+public:
+	ChestPairEvent() {
+		memset(this, 0, sizeof(ChestPairEvent));
+	}
+	void releaseAll() {
+		if (dimension) {
+			delete dimension;
+			dimension = NULL;
+		}
+		if (blockname) {
+			delete blockname;
+			blockname = NULL;
+		}
+		if (targetblockname) {
+			delete targetblockname;
+			targetblockname = NULL;
+		}
+	}
+};
+struct PistonPushEvent : ChestPairEvent {
+	UINT8 direction;			// 朝向
+public:
+	PistonPushEvent() {
+		memset(this, 0, sizeof(PistonPushEvent));
+	}
+};
+
+struct MobSpawnCheckEvent {
+	char* mobname;		// 生物名称
+	char* dimension;	// 生物所在维度
+	char* mobtype;		// 生物类型
+	Vec3 XYZ;			// 生物所在位置
+	int dimensionid;	// 生物所处维度ID
+	void* pmob;			// 生物指针
+public:
+	MobSpawnCheckEvent() {
+		memset(this, 0, sizeof(MobSpawnCheckEvent));
+	}
+	void releaseAll() {
+		if (mobname) {
+			delete mobname;
+			mobname = NULL;
+		}
+		if (dimension) {
+			delete dimension;
+			dimension = NULL;
+		}
+		if (mobtype) {
+			delete mobtype;
+			mobtype = NULL;
+		}
 	}
 };

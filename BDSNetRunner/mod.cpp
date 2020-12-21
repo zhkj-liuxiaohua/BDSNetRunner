@@ -349,6 +349,23 @@ std::string getOnLinePlayers() {
 	return rt.isNull() ? "" : std::string(rt.toStyledString().c_str());
 }
 
+#if MODULE_KENGWANG
+// 函数名：setServerMotd
+// 功能：设置服务器的显示名信息
+// 参数个数：2个
+// 参数类型：字符串，布尔型
+// 参数详解：motd - 新服务器显示名信息，isShow - 是否公开显示
+// （注：服务器名称加载时机在地图完成载入之后）
+bool setServerMotd(const char* motd, bool isShow) {
+	if (p_ServerNetworkHandle) {
+		std::string nmotd = GBKToUTF8(motd);
+		SYMCALL(VA, MSSYM_MD5_21204897709106ba1d290df17fead479, p_ServerNetworkHandle, &nmotd, isShow);
+		return true;
+	}
+	return false;
+}
+#endif
+
 // 函数名：reNameByUuid
 // 功能：重命名一个指定的玩家名
 // 参数个数：2个
@@ -2070,6 +2087,128 @@ static void _CS_ONLEVELUP(Player* pl, int a1) {
 static VA ONLEVELUP_SYMS[] = { 1, MSSYM_B1QA9addLevelsB1AA6PlayerB2AAA6UEAAXHB1AA1Z,
 	(VA)_CS_ONLEVELUP };
 
+#if MODULE_KENGWANG
+// 活塞推方块事件
+static bool _CS_ONPISTONPUSH(BlockActor* _this, BlockSource* a2, BlockPos* a3, UINT8 a4, UINT8 a5) {
+	auto pBlkpos = _this->getPosition();
+	auto pBlockSource = a2;
+	auto pBlk = _this->getBlock();
+	auto ptBlk = pBlockSource->getBlock(a3);
+	Events e;
+	e.type = EventType::onPistonPush;
+	e.mode = ActMode::BEFORE;
+	e.result = 0;
+	PistonPushEvent de;
+	int did = a2->getDimensionId();
+	de.dimensionid = did;
+	autoByteCpy(&de.dimension, toDimenStr(did).c_str());
+	de.blockid = pBlk->getLegacyBlock()->getBlockItemID();
+	autoByteCpy(&de.blockname, pBlk->getLegacyBlock()->getFullName().c_str());
+	memcpy(&de.position, pBlkpos->getPosition(), sizeof(BPos3));
+	de.targetblockid = ptBlk->getLegacyBlock()->getBlockItemID();
+	autoByteCpy(&de.targetblockname, ptBlk->getLegacyBlock()->getFullName().c_str());
+	memcpy(&de.targetposition, a3, sizeof(BPos3));
+	de.direction = a5;
+	e.data = &de;
+	bool ret = runCscode(ActEvent.ONPISTONPUSH, ActMode::BEFORE, e);
+	if (ret) {
+		auto original = (bool(*)(void*, BlockSource*, BlockPos*, UINT8, UINT8)) * getOriginalData(_CS_ONPISTONPUSH);
+		ret = original(_this, a2, a3, a4, a5);
+		e.result = ret;
+		e.mode = ActMode::AFTER;
+		runCscode(ActEvent.ONPISTONPUSH, ActMode::AFTER, e);
+		de.releaseAll();
+		return ret;
+	}
+	de.releaseAll();
+	return ret;
+}
+static VA ONPISTONPUSH_SYMS[] = { 1, MSSYM_B2QUE19attachedBlockWalkerB1AE16PistonBlockActorB2AAA4AEAAB1UE16NAEAVBlockSourceB2AAE12AEBVBlockPosB2AAA2EEB1AA1Z,
+	(VA)_CS_ONPISTONPUSH };
+
+// 箱子合并事件
+static BlockSource* chestBlockSource = NULL;
+// 预判是否可合并
+static bool _CS_ONCHESTCANPAIR(VA a1, VA a2, BlockSource* a3) {
+	auto org = (bool(*)(VA, VA, BlockSource*)) * getOriginalData(_CS_ONCHESTCANPAIR);
+	bool ret = org(a1, a2, a3);
+	if (ret) {
+		chestBlockSource = a3;
+	}
+	return ret;
+}
+static bool _CS_ONCHESTPAIR(BlockActor* a1, BlockActor* a2, bool a3) {
+	auto real_this = a1;
+	auto pBlkpos = real_this->getPosition();
+	auto did = chestBlockSource->getDimensionId();
+	auto pBlk = chestBlockSource->getBlock(pBlkpos);
+	auto real_that = a2;
+	auto ptBlkpos = real_that->getPosition();
+	auto ptBlk = chestBlockSource->getBlock(ptBlkpos);;
+	Events e;
+	e.type = EventType::onChestPair;
+	e.mode = ActMode::BEFORE;
+	e.result = 0;
+	ChestPairEvent de;
+	de.dimensionid = did;
+	autoByteCpy(&de.dimension, toDimenStr(did).c_str());
+	de.blockid = pBlk->getLegacyBlock()->getBlockItemID();
+	autoByteCpy(&de.blockname, pBlk->getLegacyBlock()->getFullName().c_str());
+	memcpy(&de.position, pBlkpos->getPosition(), sizeof(BPos3));
+	de.targetblockid = ptBlk->getLegacyBlock()->getBlockItemID();
+	autoByteCpy(&de.targetblockname, ptBlk->getLegacyBlock()->getFullName().c_str());
+	memcpy(&de.targetposition, ptBlkpos->getPosition(), sizeof(BPos3));
+	e.data = &de;
+	bool ret = runCscode(ActEvent.ONCHESTPAIR, ActMode::BEFORE, e);
+	if (ret) {
+		auto original = (bool(*)(BlockActor*, BlockActor*, bool)) * getOriginalData(_CS_ONCHESTPAIR);
+		ret = original(a1, a2, a3);
+		e.result = ret;
+		e.mode = ActMode::AFTER;
+		runCscode(ActEvent.ONCHESTPAIR, ActMode::AFTER, e);
+		de.releaseAll();
+		return ret;
+	}
+	de.releaseAll();
+	return ret;
+}
+static VA ONCHESTPAIR_SYMS[] = { 2, MSSYM_B1QE11canPairWithB1AE15ChestBlockActorB2AAA4QEAAB1UE15NPEAVBlockActorB2AAE15AEAVBlockSourceB3AAAA1Z,
+	(VA)_CS_ONCHESTCANPAIR,
+	MSSYM_B1QA8pairWithB1AE15ChestBlockActorB2AAE10QEAAXPEAV1B2AUA1NB1AA1Z,
+	(VA)_CS_ONCHESTPAIR };
+
+// 生物生成检查监听
+static bool _CS_ONMOBSPAWNCHECK(Mob* a1, VA a2) {
+	auto original = (bool(*)(Mob*, VA)) * getOriginalData(_CS_ONMOBSPAWNCHECK);
+	Events e;
+	e.type = EventType::onMobSpawnCheck;
+	e.mode = ActMode::BEFORE;
+	e.result = 0;
+	MobSpawnCheckEvent me;
+	me.dimensionid = a1->getDimensionId();
+	me.pmob = a1;
+	autoByteCpy(&me.dimension, toDimenStr(me.dimensionid).c_str());
+	autoByteCpy(&me.mobname, a1->getNameTag().c_str());
+	autoByteCpy(&me.mobtype, a1->getTypeName().c_str());
+	memcpy(&me.XYZ, a1->getPos(), sizeof(Vec3));
+	e.data = &me;
+	bool ret = runCscode(ActEvent.ONMOBSPAWNCHECK, ActMode::BEFORE, e);
+	if (ret) {
+		ret = original(a1, a2);
+		e.result = ret;
+		e.mode = ActMode::AFTER;
+		runCscode(ActEvent.ONMOBSPAWNCHECK, ActMode::AFTER, e);
+		me.releaseAll();
+		return ret;
+	}
+	me.releaseAll();
+	return ret;
+}
+static VA ONMOBSPAWNCHECK_SYMS[] = { 1, MSSYM_B1QE15checkSpawnRulesB1AA3MobB2AAA4UEAAB1UA1NB1UA1NB1AA1Z,
+	(VA)_CS_ONMOBSPAWNCHECK };
+
+#endif
+
 // 初始化各类hook的事件绑定，基于构造函数
 static struct EventSymsInit{
 public:
@@ -2098,6 +2237,11 @@ public:
 		sListens[ActEvent.ONLEVELEXPLODE] = ONLEVELEXPLODE_SYMS;
 		sListens[ActEvent.ONEQUIPPEDARMOR] = ONSETARMOR_SYMS;
 		sListens[ActEvent.ONLEVELUP] = ONLEVELUP_SYMS;
+#if MODULE_KENGWANG
+		sListens[ActEvent.ONPISTONPUSH] = ONPISTONPUSH_SYMS;
+		sListens[ActEvent.ONCHESTPAIR] = ONCHESTPAIR_SYMS;
+		sListens[ActEvent.ONMOBSPAWNCHECK] = ONMOBSPAWNCHECK_SYMS;
+#endif
 #if (COMMERCIAL)
 		isListened[ActEvent.ONMOBHURT] = true;
 		isListened[ActEvent.ONBLOCKCMD] = true;
