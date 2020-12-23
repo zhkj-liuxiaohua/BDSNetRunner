@@ -1145,6 +1145,17 @@ void Player::saddLevel(Player* p, int lv) {
 	SYMCALL(void, MSSYM_B1QA9addLevelsB1AA6PlayerB2AAA6UEAAXHB1AA1Z, p, lv);
 }
 
+std::vector<VA*>* Player::sgetPlayers(int did, float x1, float y1, float z1, float x2, float y2, float z2) {
+	if (p_level) {
+		if (did > -1 && did < 3) {
+			AABB rt;
+			rt.set(x1, y1, z1, x2, y2, z2);
+			BlockSource* bs = (BlockSource*)((Level*)p_level)->getDimension(did)->getBlockSource();
+			return bs->getPlayers((VA*)&rt);
+		}
+	}
+	return NULL;
+}
 // 类属性相关方法
 static struct McMethods {
 	std::unordered_map<std::string, void*> mcMethods;
@@ -1174,6 +1185,7 @@ public:
 		mcMethods[m.ENTITY_HURT] = &Actor::shurt;
 		mcMethods[m.LEVEL_GETFROM_UNIQUEID] = &Actor::sgetfromUniqueID;
 		mcMethods[m.LEVEL_GETSFROM_AABB] = &Actor::sgetEntities;
+		mcMethods[m.LEVEL_GETPLFROM_AABB] = &Player::sgetPlayers;
 		mcMethods[m.PLAYER_GET_HOTBAR_CONTAINER] = &Player::sgetHotbarContainer;
 		mcMethods[m.PLAYER_GET_UUID] = &Player::sgetUuid;
 		mcMethods[m.PLAYER_GET_IPPORT] = &Player::sgetIPPort;

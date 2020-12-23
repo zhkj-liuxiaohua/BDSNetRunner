@@ -579,12 +579,14 @@ namespace CSR
         const string PLAYER_GET_UUID = "player.get_uuid";
         const string PLAYER_GET_IPPORT = "player.get_ipport";
         const string PLAYER_ADD_LEVEL = "player.add_level";
+        const string LEVEL_GETPLFROM_AABB = "level.getplfrom_aabb";
 
         protected delegate bool PADDLEVEL(IntPtr p, int lv);
         static AGET pgetHotbarContainer;
         static AGET pgetUuid;
         static AGET pgetIPPort;
         static PADDLEVEL paddLevel;
+        static AGETSFROMAABB pgetplFromAABB;
         static bool playerApiInited = false;
 
         static private bool initPlayerAPI(MCCSAPI api)
@@ -597,6 +599,7 @@ namespace CSR
                     pgetUuid = api.ConvertComponentFunc<AGET>(PLAYER_GET_UUID);
                     pgetIPPort = api.ConvertComponentFunc<AGET>(PLAYER_GET_IPPORT);
                     paddLevel = api.ConvertComponentFunc<PADDLEVEL>(PLAYER_ADD_LEVEL);
+                    pgetplFromAABB = api.ConvertComponentFunc<AGETSFROMAABB>(LEVEL_GETPLFROM_AABB);
                     playerApiInited = true;
                 }
                 else
@@ -657,6 +660,33 @@ namespace CSR
             {
                 paddLevel(ptr, lv);
             }
+        }
+        /// <summary>
+        /// 从指定地图位置查询玩家指针列表
+        /// </summary>
+        /// <param name="api"></param>
+        /// <param name="did">维度ID</param>
+        /// <param name="x1"></param>
+        /// <param name="y1"></param>
+        /// <param name="z1"></param>
+        /// <param name="x2"></param>
+        /// <param name="y2"></param>
+        /// <param name="z2"></param>
+        /// <returns>玩家指针列表</returns>
+        public static ArrayList getplFromAABB(MCCSAPI api, int did, float x1, float y1, float z1, float x2, float y2, float z2)
+        {
+            if (pgetplFromAABB == null)
+                initEntityAPI(api);
+            IntPtr pv = pgetplFromAABB(did, x1, y1, z1, x2, y2, z2);
+            if (pv != null && pv != IntPtr.Zero)
+            {
+                try
+                {
+                    return ((Std_Vector)Marshal.PtrToStructure(pv, typeof(Std_Vector))).toList();
+                }
+                catch { }
+            }
+            return null;
         }
     }
 }

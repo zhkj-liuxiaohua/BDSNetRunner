@@ -314,7 +314,8 @@ struct MCMETHOD {
 	const std::string ENTITY_HURT = "entity.hurt";
 	const std::string LEVEL_GETFROM_UNIQUEID = "level.getfrom_uniqueid";
 	const std::string LEVEL_GETSFROM_AABB = "level.getsfrom_aabb";
-
+	
+	const std::string LEVEL_GETPLFROM_AABB = "level.getplfrom_aabb";
 	const std::string PLAYER_GET_HOTBAR_CONTAINER = "player.get_hotbar_container";
 	const std::string PLAYER_GET_UUID = "player.get_uuid";
 	const std::string PLAYER_GET_IPPORT = "player.get_ipport";

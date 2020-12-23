@@ -122,9 +122,14 @@ namespace CSRDemo
                     {
 						var el = CsActor.getsFromAABB(api, fe.dimensionid, fe.XYZ.x - 16, fe.XYZ.y - 16, fe.XYZ.z - 16,
 							fe.XYZ.x + 16, fe.XYZ.y + 16, fe.XYZ.z + 16);
-						if (el != null && el.Count > 0)
+						var plst = CsPlayer.getplFromAABB(api, fe.dimensionid, fe.XYZ.x - 16, fe.XYZ.y - 16, fe.XYZ.z - 16,
+							fe.XYZ.x + 16, fe.XYZ.y + 16, fe.XYZ.z + 16);
+						el = el == null ? new ArrayList() : el;
+						plst = plst == null ? new ArrayList() : plst;
+						el.AddRange(plst);
+						if (el.Count > 0)
 						{
-							Console.WriteLine("查询并模拟攻击玩家附近16格内所有实体：");
+							Console.WriteLine("查询并模拟攻击玩家附近16格内所有实体和玩家：");
 							foreach (IntPtr eptr in el)
 							{
 								var cse = new CsActor(api, eptr);

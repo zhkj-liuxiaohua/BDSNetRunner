@@ -75,6 +75,11 @@ struct BlockSource {
 		return SYMCALL(std::vector<VA*>*, MSSYM_MD5_73d55bcf0da8c45a15024daf84014ad7,
 			this, 0, rect, 1);
 	}
+	// 获取指定范围内所有玩家
+	std::vector<VA*>* getPlayers(VA* rect) {
+		return SYMCALL(std::vector<VA*>*, MSSYM_MD5_73d55bcf0da8c45a15024daf84014ad7,
+			this, ActorType::Player_0, rect, 0);
+	}
 };
 
 struct Dimension {
@@ -308,6 +313,8 @@ struct Player : Mob {
 	static std::string sgetIPPort(Player*);
 	// 导出API，增加玩家等级
 	static void saddLevel(Player*, int);
+	// 导出API，查询指定维度指定坐标范围内所有玩家
+	static std::vector<VA*>* sgetPlayers(int, float, float, float, float, float, float);
 #pragma endregion
 
 	// 取uuid
