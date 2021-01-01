@@ -2219,6 +2219,61 @@ static bool _CS_ONMOBSPAWNCHECK(Mob* a1, VA a2) {
 static VA ONMOBSPAWNCHECK_SYMS[] = { 1, MSSYM_B1QE15checkSpawnRulesB1AA3MobB2AAA4UEAAB1UA1NB1UA1NB1AA1Z,
 	(VA)_CS_ONMOBSPAWNCHECK };
 
+// 玩家丢出物品
+static bool _CS_ONDROPITEM(Player* pPlayer, ItemStack* itemStack, bool a3) {
+	Events e;
+	e.type = EventType::onDropItem;
+	e.mode = ActMode::BEFORE;
+	e.result = 0;
+	PickUpItemEvent pe;
+	addPlayerInfo(&pe, pPlayer);
+	pe.itemid = itemStack->getId();
+	autoByteCpy(&pe.itemname, itemStack->getName().c_str());
+	pe.itemaux = itemStack->getAuxValue();
+	pe.pplayer = pPlayer;
+	e.data = &pe;
+	bool ret = runCscode(ActEvent.ONDROPITEM, ActMode::BEFORE, e);
+	if (ret) {
+		auto original = (bool(*)(Player*, ItemStack*, bool)) * getOriginalData(_CS_ONDROPITEM);
+		ret = original(pPlayer, itemStack, a3);
+		e.result = ret;
+		e.mode = ActMode::AFTER;
+		runCscode(ActEvent.ONDROPITEM, ActMode::AFTER, e);
+	}
+	pe.releaseAll();
+	return ret;
+}
+static VA ONDROPITEM_SYMS[] = { 1,MSSYM_B1QA4dropB1AA6PlayerB2AAA4UEAAB1UE14NAEBVItemStackB3AAUA1NB1AA1Z ,
+(VA)_CS_ONDROPITEM };
+
+// 玩家捡起物品
+static bool _CS_ONPICKUPITEM(Player* pPlayer, VA* itemactor, int a3, unsigned int a4) {
+	ItemStack* itemStack = (ItemStack*)((VA)itemactor + 1648); // IDA   see Hopper::_addItem
+	Events e;
+	e.type = EventType::onPickUpItem;
+	e.mode = ActMode::BEFORE;
+	e.result = 0;
+	PickUpItemEvent pe;
+	addPlayerInfo(&pe, pPlayer);
+	pe.itemid = itemStack->getId();
+	autoByteCpy(&pe.itemname, itemStack->getName().c_str());
+	pe.itemaux = itemStack->getAuxValue();
+	pe.pplayer = pPlayer;
+	e.data = &pe;
+	bool ret = runCscode(ActEvent.ONPICKUPITEM, ActMode::BEFORE, e);
+	if (ret) {
+		auto original = (bool(*)(Player*, VA*, int, unsigned int)) * getOriginalData(_CS_ONPICKUPITEM);
+		original(pPlayer, itemactor, a3, a4);
+		e.result = ret;
+		e.mode = ActMode::AFTER;
+		runCscode(ActEvent.ONPICKUPITEM, ActMode::AFTER, e);
+	}
+	pe.releaseAll();
+	return ret;
+}
+static VA ONPICKUPITEM_SYMS[] = { 1, MSSYM_B1QA4takeB1AA6PlayerB2AAA4QEAAB1UE10NAEAVActorB2AAA2HHB1AA1Z,
+	(VA)_CS_ONPICKUPITEM };
+
 #endif
 
 // 初始化各类hook的事件绑定，基于构造函数
@@ -2253,6 +2308,8 @@ public:
 		sListens[ActEvent.ONPISTONPUSH] = ONPISTONPUSH_SYMS;
 		sListens[ActEvent.ONCHESTPAIR] = ONCHESTPAIR_SYMS;
 		sListens[ActEvent.ONMOBSPAWNCHECK] = ONMOBSPAWNCHECK_SYMS;
+		sListens[ActEvent.ONDROPITEM] = ONDROPITEM_SYMS;
+		sListens[ActEvent.ONPICKUPITEM] = ONPICKUPITEM_SYMS;
 #endif
 #if (COMMERCIAL)
 		isListened[ActEvent.ONMOBHURT] = true;

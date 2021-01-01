@@ -142,6 +142,14 @@ namespace CSR
 		/// onMobSpawnCheck - 生物生成检查事件
 		/// </summary>
 		public const string onMobSpawnCheck = "onMobSpawnCheck";
+		/// <summary>
+		/// onDropItem - 玩家丢物品事件
+		/// </summary>
+		public const string onDropItem = "onDropItem";
+		/// <summary>
+		/// onPickUpItem - 玩家捡起物品事件
+		/// </summary>
+		public const string onPickUpItem = "onPickUpItem";
 	}
 
 	public enum EventType {
@@ -176,7 +184,9 @@ namespace CSR
 		onLevelUp = 28,
 		onPistonPush = 29,
 		onChestPair = 30,
-		onMobSpawnCheck = 31
+		onMobSpawnCheck = 31,
+		onDropItem = 32,
+		onPickUpItem = 33
 	}
 
 	public enum ActMode {
@@ -376,6 +386,10 @@ namespace CSR
 						return ChestPairEvent.getFrom(e);
 					case EventType.onMobSpawnCheck:
 						return MobSpawnCheckEvent.getFrom(e);
+					case EventType.onPickUpItem:
+						return PickUpItemEvent.getFrom(e);
+					case EventType.onDropItem:
+						return DropItemEvent.getFrom(e);
 					default:
 						// do nothing
 						break;
@@ -1573,6 +1587,71 @@ namespace CSR
 			pe.mdimensionid = Marshal.ReadInt32(s, 36);
 			pe.mmob = (IntPtr)Marshal.ReadInt64(s, 40);
 			return pe;
+		}
+	}
+
+	public class PickUpItemEvent : PlayerEvent
+    {
+		protected string mitemname;
+		protected short mitemid;
+		protected short mitemaux;
+		/// <summary>
+		/// 物品名称
+		/// </summary>
+		public string itemname { get { return mitemname; } }
+		/// <summary>
+		/// 物品ID
+		/// </summary>
+		public short itemid { get { return mitemid; } }
+		/// <summary>
+		/// 物品特殊值
+		/// </summary>
+		public short itemaux { get { return mitemaux; } }
+
+		public static new PickUpItemEvent getFrom(Events e)
+		{
+			var puie = createHead(e, EventType.onPickUpItem, typeof(PickUpItemEvent)) as PickUpItemEvent;
+			if (puie == null)
+				return null;
+			IntPtr s = e.data;  // 此处为转换过程
+			puie.loadData(s);
+			puie.mitemname = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 40));
+			puie.mitemid = Marshal.ReadInt16(s, 48);
+			puie.mitemaux = Marshal.ReadInt16(s, 50);
+			puie.mplayer = Marshal.ReadIntPtr(s, 56);
+			return puie;
+		}
+	}
+
+	public class DropItemEvent : PlayerEvent {
+		protected string mitemname;
+		protected short mitemid;
+		protected short mitemaux;
+		/// <summary>
+		/// 物品名称
+		/// </summary>
+		public string itemname { get { return mitemname; } }
+		/// <summary>
+		/// 物品ID
+		/// </summary>
+		public short itemid { get { return mitemid; } }
+		/// <summary>
+		/// 物品特殊值
+		/// </summary>
+		public short itemaux { get { return mitemaux; } }
+
+		public static new DropItemEvent getFrom(Events e)
+		{
+			var puie = createHead(e, EventType.onDropItem, typeof(DropItemEvent)) as DropItemEvent;
+			if (puie == null)
+				return null;
+			IntPtr s = e.data;  // 此处为转换过程
+			puie.loadData(s);
+			puie.mitemname = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 40));
+			puie.mitemid = Marshal.ReadInt16(s, 48);
+			puie.mitemaux = Marshal.ReadInt16(s, 50);
+			puie.mplayer = Marshal.ReadIntPtr(s, 56);
+			return puie;
 		}
 	}
 }

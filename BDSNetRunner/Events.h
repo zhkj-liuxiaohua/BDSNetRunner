@@ -33,7 +33,9 @@ enum class EventType : UINT16 {
 	onLevelUp = 28,
 	onPistonPush = 29,
 	onChestPair = 30,
-	onMobSpawnCheck = 31
+	onMobSpawnCheck = 31,
+	onDropItem = 32,
+	onPickUpItem = 33
 };
 
 // 监听模式
@@ -72,6 +74,8 @@ struct ACTEVENT {
 	const std::string ONPISTONPUSH = u8"onPistonPush";
 	const std::string ONCHESTPAIR = u8"onChestPair";
 	const std::string ONMOBSPAWNCHECK = u8"onMobSpawnCheck";
+	const std::string ONDROPITEM = u8"onDropItem";
+	const std::string ONPICKUPITEM = u8"onPickUpItem";
 #if (COMMERCIAL)
 	const std::string ONMOBHURT = u8"onMobHurt";
 	const std::string ONBLOCKCMD = u8"onBlockCmd";
@@ -185,6 +189,23 @@ public:
 			blockname = NULL;
 		}
 		((PlayerEvent*)this)->releaseAll();
+	}
+};
+
+struct PickUpItemEvent : PlayerEvent {
+	char* itemname;		// 物品名称
+	short itemid;		// 物品ID
+	short itemaux;		// 物品特殊值
+	void* pplayer;		// 附加组件，生物组件
+public:
+	PickUpItemEvent() {
+		memset(this, 0, sizeof(PickUpItemEvent));
+	}
+	void releaseAll() {
+		if (itemname) {
+			delete itemname;
+			itemname = NULL;
+		}		
 	}
 };
 
