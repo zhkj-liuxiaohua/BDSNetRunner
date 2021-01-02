@@ -435,6 +435,32 @@ namespace CSRDemo
 				}
 				return true;
 			});
+
+			//玩家捡物品事件 - 可拦截
+			api.addBeforeActListener(EventKey.onPickUpItem, x =>
+			{
+				Console.WriteLine("[CS] type = {0}, mode = {1}, result= {2}", x.type, x.mode, x.result);
+				PickUpItemEvent ae = BaseEvent.getFrom(x) as PickUpItemEvent;
+				if (ae != null)
+				{
+					Console.WriteLine("玩家 {0} 在 {1} 的 ({2}) 捡起了 {3} 物品。", ae.playername, ae.dimension, ae.XYZ.x.ToString("F2") + "," +
+						ae.XYZ.y.ToString("F2") + "," + ae.XYZ.z.ToString("F2"), ae.itemname);
+				}
+				return true;
+			});
+
+			//玩家丢物品事件 - 可拦截
+			api.addBeforeActListener(EventKey.onDropItem, x =>
+			{
+				Console.WriteLine("[CS] type = {0}, mode = {1}, result= {2}", x.type, x.mode, x.result);
+				DropItemEvent ae = BaseEvent.getFrom(x) as DropItemEvent;
+				if (ae != null)
+				{
+					Console.WriteLine("玩家 {0} 在 {1} 的 ({2}) 丢下了 {3} 物品。", ae.playername, ae.dimension, ae.XYZ.x.ToString("F2") + "," +
+						ae.XYZ.y.ToString("F2") + "," + ae.XYZ.z.ToString("F2"), ae.itemname);
+				}
+				return true;
+			});
 			#region 非社区部分内容
 			if (api.COMMERCIAL)
 			{

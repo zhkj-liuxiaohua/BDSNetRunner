@@ -39,6 +39,26 @@ struct BlockPos {
 	BPos3* getPosition() const {
 		return reinterpret_cast<BPos3*>(reinterpret_cast<VA>(this));
 	}
+	//通过 BDS 的指令原生输出
+	std::string toString() {
+		std::string s;
+		SYMCALL(std::string&, MSSYM_MD5_08038beb99b82fbb46756aa99d94b86f, this, &s);
+		return s;
+	}
+	// 通过 BPos3 获取 BlockPos
+	BlockPos* getBlockPos(const BPos3* vec3) {
+		return SYMCALL(BlockPos*, MSSYM_B2QQA90BlockPosB2AAA4QEAAB1AA8AEBVVec3B3AAAA1Z,
+			this, vec3);
+	}
+	// 通过 double 获取 BlockPos
+	BlockPos* getBlockPos(double x, double y, double z) {
+		return SYMCALL(BlockPos*, MSSYM_B2QQA90BlockPosB2AAA4QEAAB1AA3NNNB1AA1Z,
+			this, x, y, z);
+	}
+	BlockPos() {
+		SYMCALL(void, MSSYM_B2QQA90BlockPosB2AAA4QEAAB1AA2XZ,
+			this);
+	}
 };
 
 struct Block {
@@ -79,6 +99,11 @@ struct BlockSource {
 	std::vector<VA*>* getPlayers(VA* rect) {
 		return SYMCALL(std::vector<VA*>*, MSSYM_MD5_73d55bcf0da8c45a15024daf84014ad7,
 			this, ActorType::Player_0, rect, 0);
+	}
+	//获取方块操作器
+	BlockActor* getBlockActor(const BlockPos* blkpos) {
+		return SYMCALL(BlockActor*, MSSYM_B1QE14getBlockEntityB1AE11BlockSourceB2AAE18QEAAPEAVBlockActorB2AAE12AEBVBlockPosB3AAAA1Z,
+			this, blkpos);
 	}
 };
 
@@ -286,6 +311,13 @@ struct Actor {
 			MSSYM_MD5_af48b8a1869a49a3fb9a4c12f48d5a68,
 			&en_name, getEntityTypeId());
 		return en_name;
+	}
+
+	// 骑乘
+	void AddRider(Actor* actor) {
+		SYMCALL(void,
+			MSSYM_B1QA8addRiderB1AA5ActorB2AAE10UEAAXAEAV1B2AAA1Z,
+			this, actor);
 	}
 };
 
