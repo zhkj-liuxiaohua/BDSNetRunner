@@ -192,23 +192,6 @@ public:
 	}
 };
 
-struct PickUpItemEvent : PlayerEvent {
-	char* itemname;		// 物品名称
-	short itemid;		// 物品ID
-	short itemaux;		// 物品特殊值
-	void* pplayer;		// 附加组件，生物组件
-public:
-	PickUpItemEvent() {
-		memset(this, 0, sizeof(PickUpItemEvent));
-	}
-	void releaseAll() {
-		if (itemname) {
-			delete itemname;
-			itemname = NULL;
-		}		
-	}
-};
-
 struct BlockEvent : PlayerEvent {
 	char* blockname;	// 方块名称
 	BPos3 position;		// 操作方块所在位置
@@ -669,6 +652,23 @@ public:
 		if (mobtype) {
 			delete mobtype;
 			mobtype = NULL;
+		}
+	}
+};
+
+struct PickUpItemEvent : PlayerEvent {
+	char* itemname;		// 物品名称
+	short itemid;		// 物品ID
+	short itemaux;		// 物品特殊值
+	void* pplayer;		// 附加组件，生物组件
+public:
+	PickUpItemEvent() {
+		memset(this, 0, sizeof(PickUpItemEvent));
+	}
+	void releaseAll() {
+		if (itemname) {
+			delete itemname;
+			itemname = NULL;
 		}
 	}
 };

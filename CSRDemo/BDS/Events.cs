@@ -1589,7 +1589,10 @@ namespace CSR
 			return pe;
 		}
 	}
-
+	/// <summary>
+	/// 玩家拾取物品监听<br/>
+	/// 拦截可否：是
+	/// </summary>
 	public class PickUpItemEvent : PlayerEvent
     {
 		protected string mitemname;
@@ -1622,7 +1625,10 @@ namespace CSR
 			return puie;
 		}
 	}
-
+	/// <summary>
+	/// 玩家掉落物品监听<br/>
+	/// 拦截可否：是
+	/// </summary>
 	public class DropItemEvent : PlayerEvent {
 		protected string mitemname;
 		protected short mitemid;

@@ -12,6 +12,7 @@ struct BPos3 {
 	INT32 x;
 	INT32 y;
 	INT32 z;
+public:
 	std::string toJsonString() {
 		char str[256];
 		sprintf_s(str, "{\"x\":%d,\"y\":%d,\"z\":%d}", x, y, z);
@@ -34,10 +35,10 @@ struct BlockLegacy {
 	}
 };
 
-struct BlockPos {
+struct BlockPos : BPos3 {
 	// 获取坐标数组头
 	BPos3* getPosition() const {
-		return reinterpret_cast<BPos3*>(reinterpret_cast<VA>(this));
+		return (BPos3*)this;
 	}
 	//通过 BDS 的指令原生输出
 	std::string toString() {
@@ -45,19 +46,21 @@ struct BlockPos {
 		SYMCALL(std::string&, MSSYM_MD5_08038beb99b82fbb46756aa99d94b86f, this, &s);
 		return s;
 	}
-	// 通过 BPos3 获取 BlockPos
-	BlockPos* getBlockPos(const BPos3* vec3) {
-		return SYMCALL(BlockPos*, MSSYM_B2QQA90BlockPosB2AAA4QEAAB1AA8AEBVVec3B3AAAA1Z,
-			this, vec3);
+	// 通过 Vec3 构造 BlockPos
+	BlockPos(const void* vec3) {
+		auto v = (float*)vec3;
+		x = v ? (int)v[0] : 0;
+		y = v ? (int)v[1] : 0;
+		z = v ? (int)v[2] : 0;
 	}
-	// 通过 double 获取 BlockPos
-	BlockPos* getBlockPos(double x, double y, double z) {
-		return SYMCALL(BlockPos*, MSSYM_B2QQA90BlockPosB2AAA4QEAAB1AA3NNNB1AA1Z,
-			this, x, y, z);
+	// 通过 double 构造 BlockPos
+	BlockPos(double x2, double y2, double z2) {
+		x = (int)x2;
+		y = (int)y2;
+		z = (int)z2;
 	}
 	BlockPos() {
-		SYMCALL(void, MSSYM_B2QQA90BlockPosB2AAA4QEAAB1AA2XZ,
-			this);
+		memset(this, 0, sizeof(BlockPos));
 	}
 };
 
@@ -313,12 +316,14 @@ struct Actor {
 		return en_name;
 	}
 
+#if 0			// TODO MODULE_KENGWANG, XXX
 	// 骑乘
 	void AddRider(Actor* actor) {
 		SYMCALL(void,
 			MSSYM_B1QA8addRiderB1AA5ActorB2AAE10UEAAXAEAV1B2AAA1Z,
 			this, actor);
 	}
+#endif
 };
 
 struct Mob : Actor {
@@ -468,6 +473,12 @@ struct ItemStack : ItemStackBase {
 	}
 };
 
+struct ItemActor : Actor {
+	// 获取实际物品
+	ItemStack* getItemStack() {		// IDA   see Hopper::_addItem
+		return (ItemStack*)((VA)this + 1648);
+	}
+};
 
 struct LevelContainerModel {
 	// 取开容者

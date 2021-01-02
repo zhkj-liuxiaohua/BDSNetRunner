@@ -2247,8 +2247,8 @@ static VA ONDROPITEM_SYMS[] = { 1,MSSYM_B1QA4dropB1AA6PlayerB2AAA4UEAAB1UE14NAEB
 (VA)_CS_ONDROPITEM };
 
 // 玩家捡起物品
-static bool _CS_ONPICKUPITEM(Player* pPlayer, VA* itemactor, int a3, unsigned int a4) {
-	ItemStack* itemStack = (ItemStack*)((VA)itemactor + 1648); // IDA   see Hopper::_addItem
+static bool _CS_ONPICKUPITEM(Player* pPlayer, ItemActor* itemactor, int a3, unsigned int a4) {
+	ItemStack* itemStack = itemactor->getItemStack();
 	Events e;
 	e.type = EventType::onPickUpItem;
 	e.mode = ActMode::BEFORE;
@@ -2262,7 +2262,7 @@ static bool _CS_ONPICKUPITEM(Player* pPlayer, VA* itemactor, int a3, unsigned in
 	e.data = &pe;
 	bool ret = runCscode(ActEvent.ONPICKUPITEM, ActMode::BEFORE, e);
 	if (ret) {
-		auto original = (bool(*)(Player*, VA*, int, unsigned int)) * getOriginalData(_CS_ONPICKUPITEM);
+		auto original = (bool(*)(Player*, ItemActor*, int, unsigned int)) * getOriginalData(_CS_ONPICKUPITEM);
 		original(pPlayer, itemactor, a3, a4);
 		e.result = ret;
 		e.mode = ActMode::AFTER;
