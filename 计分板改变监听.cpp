@@ -14,18 +14,18 @@ struct ScoreboardId {
 	//
 };
 struct ScoreInfo {
-	//´Ó scoreboard::getscoresµÃµ½
+	//ä» scoreboard::getscoreså¾—åˆ°
 	auto getcount() {
 		return *(int*)((VA)(this) + 12);
 	}
 };
 struct Objective {
-	//´Óobjective::objectiveµÃµ½
-	//»ñÈ¡¼Æ·Ö°åÃû³Æ
+	//ä»objective::objectiveå¾—åˆ°
+	//è·å–è®¡åˆ†æ¿åç§°
 	auto getscorename() {
 		return *(std::string*)((VA)(this) + 64);
 	}
-	//»ñÈ¡¼Æ·Ö°åÕ¹Ê¾Ãû³Æ
+	//è·å–è®¡åˆ†æ¿å±•ç¤ºåç§°
 	auto getscoredisplayname() {
 		return *(std::string*)((VA)(this) + 96);
 	}
@@ -33,62 +33,70 @@ struct Objective {
 		char a1[12];
 		return SYMCALL(ScoreInfo*, MSSYM_B1QE14getPlayerScoreB1AA9ObjectiveB2AAA4QEBAB1QE11AUScoreInfoB2AAE16AEBUScoreboardIdB3AAAA1Z, this, a1, a2);
 	}
+	auto createScoreboardId(Player* player) {
+		return SYMCALL(ScoreboardId*, MSSYM_B1QE18createScoreboardIdB1AE16ServerScoreboardB2AAE20UEAAAEBUScoreboardIdB2AAE10AEBVPlayerB3AAAA1Z, this, player);
+	}
 };
 
-//==============================================¸¨Öú¼ÓÔØ============================================================================================
-Scoreboard* scoreboard;//´¢´æ¼Æ·Ö°åÖ¸Õë
-static std::map<int, Player*> player_socreboardid;//´¢´æÍæ¼ÒµÄ¼Æ·Ö°åid
-//ÔÚ·şÎñÆ÷¿ªÊ¼Ê±»ñÈ¡¼Æ·Ö°åÖ¸Õë
+//==============================================è¾…åŠ©åŠ è½½============================================================================================
+Scoreboard* scoreboard;//å‚¨å­˜è®¡åˆ†æ¿æŒ‡é’ˆ
+static std::map<int, Player*> player_socreboardid;//å‚¨å­˜ç©å®¶çš„è®¡åˆ†æ¿id
+//åœ¨æœåŠ¡å™¨å¼€å§‹æ—¶è·å–è®¡åˆ†æ¿æŒ‡é’ˆ
 THook(void*, MSSYM_B2QQE170ServerScoreboardB2AAA4QEAAB1AE24VCommandSoftEnumRegistryB2AAE16PEAVLevelStorageB3AAAA1Z, void* _this, void* a2, void* a3) {
 	scoreboard = (Scoreboard*)original(_this, a2, a3);
 	return scoreboard;
 }
-// [Ô­ĞÍ] public: virtual void __cdecl ServerScoreboard::onPlayerJoined(class Player const & __ptr64) __ptr64
-// [·ûºÅ] ?onPlayerJoined@ServerScoreboard@@UEAAXAEBVPlayer@@@Z
-//Íæ¼Ò¼ÓÈëÊ±»ñÈ¡Íæ¼ÒµÄ¼Æ·Ö°åID
+// [åŸå‹] public: virtual void __cdecl ServerScoreboard::onPlayerJoined(class Player const & __ptr64) __ptr64
+// [ç¬¦å·] ?onPlayerJoined@ServerScoreboard@@UEAAXAEBVPlayer@@@Z
+//ç©å®¶åŠ å…¥æ—¶è·å–ç©å®¶çš„è®¡åˆ†æ¿ID
 THook(void, MSSYM_B1QE14onPlayerJoinedB1AE16ServerScoreboardB2AAE15UEAAXAEBVPlayerB3AAAA1Z, Scoreboard* class_this, Player* player) {
-	//ÔÚÍæ¼Ò¼ÓÈëÊ±´æ´¢Íæ¼ÒÖ¸Õë£¬·½±ãÍ¨¹ı¼Æ·Ö°åid»ñÈ¡Íæ¼ÒÖ¸Õë
-	//ÈçĞèÍæ¼ÒÀë¿ªÊ±É¾³ı£¬Çë×ÔĞĞ±àĞ´
-	int playersocreboardid = landmoney_scoreboard->getScoreboardID(player)->id;
+	//åœ¨ç©å®¶åŠ å…¥æ—¶å­˜å‚¨ç©å®¶æŒ‡é’ˆï¼Œæ–¹ä¾¿é€šè¿‡è®¡åˆ†æ¿idè·å–ç©å®¶æŒ‡é’ˆ
+	//å¦‚éœ€ç©å®¶ç¦»å¼€æ—¶åˆ é™¤ï¼Œè¯·è‡ªè¡Œç¼–å†™
+	int playersocreboardid = scoreboard->getScoreboardID(player)->id;
+	//å¦‚æœè®¡åˆ†æ¿idä¸å­˜åœ¨åˆ™è‡ªåŠ¨åˆ›å»º
+	if (playersocreboardid==-1) {
+		scoreboard->createScoreboardId(player);
+		playersocreboardid = scoreboard->getScoreboardID(player)->id;
+	}
 	player_socreboardid[playersocreboardid] = player;
 	original(class_this, player);
 }
 /*
-Íæ¼ÒÀë¿ªÊ±£º{
+ç©å®¶ç¦»å¼€æ—¶ï¼š{
 	player_socreboardid.erase(playersocreboardid);
 }*/
 
-//================================·â×°º¯Êı===================================================================
-//Ö¸Áî£¨/scoreboard players <add|remove|set> <playersname> <objectivename> <playersnum>£©ÖĞ<playersname>¶ÔÓ¦¼Æ·Ö°åid
-//ÔÚÊ¹ÓÃÊ±µ±Íæ¼Ò²»ÔÚÏßÊ¹ÓÃµÄÊÇµÚÒ»¸ö£¬ÔÚÏßÊ±Ê¹ÓÃµÚ¶ş¸ö
+//================================å°è£…å‡½æ•°===================================================================
+//æŒ‡ä»¤ï¼ˆ/scoreboard players <add|remove|set> <playersname> <objectivename> <playersnum>ï¼‰ä¸­<playersname>å¯¹åº”è®¡åˆ†æ¿id
+//åœ¨ä½¿ç”¨æ—¶å½“ç©å®¶ä¸åœ¨çº¿ä½¿ç”¨çš„æ˜¯ç¬¬ä¸€ä¸ªï¼Œåœ¨çº¿æ—¶ä½¿ç”¨ç¬¬äºŒä¸ª
 
-//Í¨¹ı¼Æ·Ö°åÃû³Æ»ñÈ¡¼Æ·Ö°åid
+//é€šè¿‡è®¡åˆ†æ¿åç§°è·å–è®¡åˆ†æ¿id
 int getScoreBoardId_byString(std::string* str) {
 	scoreboard->getScoreboardId(str);
 }
-//Í¨¹ıÍæ¼ÒÖ¸Õë»ñÈ¡¼Æ·Ö°åid
+//é€šè¿‡ç©å®¶æŒ‡é’ˆè·å–è®¡åˆ†æ¿id
 int getScoreBoardId_byPlayer(Player* player) {
 	scoreboard->getScoreboardID(player);
 }
-//===================================================½«ÒÔÏÂÉèÖÃÎª¼àÌı======================================================================================
-// [Ô­ĞÍ] public: virtual void __cdecl ServerScoreboard::onScoreChanged(struct ScoreboardId const & __ptr64,class Objective const & __ptr64) __ptr64
-// [·ûºÅ] ?onScoreChanged@ServerScoreboard@@UEAAXAEBUScoreboardId@@AEBVObjective@@@Z
-// ¼Æ·Ö°å¸Ä±äÊ±µÄ¼àÌı
+//===================================================å°†ä»¥ä¸‹è®¾ç½®ä¸ºç›‘å¬======================================================================================
+// [åŸå‹] public: virtual void __cdecl ServerScoreboard::onScoreChanged(struct ScoreboardId const & __ptr64,class Objective const & __ptr64) __ptr64
+// [ç¬¦å·] ?onScoreChanged@ServerScoreboard@@UEAAXAEBUScoreboardId@@AEBVObjective@@@Z
+// è®¡åˆ†æ¿æ”¹å˜æ—¶çš„ç›‘å¬
 THook(void, MSSYM_B1QE14onScoreChangedB1AE16ServerScoreboardB2AAE21UEAAXAEBUScoreboardIdB2AAE13AEBVObjectiveB3AAAA1Z, const struct Scoreboard* class_this, ScoreboardId* a2, Objective* a3)
 {
 	/*
-	Ô­ÃüÁî£º
-	´´½¨¼Æ·Ö°åÊ±£º/scoreboard objectives <add|remove> <objectivename> dummy <objectivedisplayname>
-	ĞŞ¸Ä¼Æ·Ö°åÊ±£¨´Ëº¯Êıhook´Ë´¦)£º/scoreboard players <add|remove|set> <playersname> <objectivename> <playersnum>
+	åŸå‘½ä»¤ï¼š
+	åˆ›å»ºè®¡åˆ†æ¿æ—¶ï¼š/scoreboard objectives <add|remove> <objectivename> dummy <objectivedisplayname>
+	ä¿®æ”¹è®¡åˆ†æ¿æ—¶ï¼ˆæ­¤å‡½æ•°hookæ­¤å¤„)ï¼š/scoreboard players <add|remove|set> <playersname> <objectivename> <playersnum>
 	*/
 	int scoreboardid = a2->id;
 	Player* player = player_socreboardid[scoreboardid];
 	if (player) {
-		cout << player->getNameTag() << endl;//»ñÈ¡ <playersname>
+		cout << player->getNameTag() << endl;//è·å– <playersname>
 	}
-	cout << to_string(scoreboardid) << endl;//»ñÈ¡¼Æ·Ö°åid
-	cout << to_string(a3->getscoreinfo(a2)->getcount()) << endl;//»ñÈ¡ĞŞ¸ÄºóµÄ<playersnum>
-	cout << a3->getscorename() << endl;//»ñÈ¡<objectivename>
-	cout << a3->getscoredisplayname() << endl;//»ñÈ¡<objectivedisname>
+	cout << to_string(scoreboardid) << endl;//è·å–è®¡åˆ†æ¿id
+	cout << to_string(a3->getscoreinfo(a2)->getcount()) << endl;//è·å–ä¿®æ”¹åçš„<playersnum>
+	cout << a3->getscorename() << endl;//è·å–<objectivename>
+	cout << a3->getscoredisplayname() << endl;//è·å–<objectivedisname>
 	original(class_this, a2, a3);
 }
