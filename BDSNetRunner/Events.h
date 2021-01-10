@@ -35,7 +35,8 @@ enum class EventType : UINT16 {
 	onChestPair = 30,
 	onMobSpawnCheck = 31,
 	onDropItem = 32,
-	onPickUpItem = 33
+	onPickUpItem = 33,
+	onScoreChanged = 34
 };
 
 // 监听模式
@@ -76,6 +77,7 @@ struct ACTEVENT {
 	const std::string ONMOBSPAWNCHECK = u8"onMobSpawnCheck";
 	const std::string ONDROPITEM = u8"onDropItem";
 	const std::string ONPICKUPITEM = u8"onPickUpItem";
+	const std::string ONSCORECHANGED = u8"onScoreChanged";
 #if (COMMERCIAL)
 	const std::string ONMOBHURT = u8"onMobHurt";
 	const std::string ONBLOCKCMD = u8"onBlockCmd";
@@ -669,6 +671,27 @@ public:
 		if (itemname) {
 			delete itemname;
 			itemname = NULL;
+		}
+	}
+};
+
+struct ScoreChangedEvent {
+	char* objectivename;		// 计分板名称
+	char* displayname;			// 计分板显示名
+	__int64 scoreboardid;		// 计分板ID值
+	int score;					// 分数
+public:
+	ScoreChangedEvent() {
+		memset(this, 0, sizeof(ScoreChangedEvent));
+	}
+	void releaseAll() {
+		if (objectivename) {
+			delete objectivename;
+			objectivename = NULL;
+		}
+		if (displayname) {
+			delete displayname;
+			displayname = NULL;
 		}
 	}
 };

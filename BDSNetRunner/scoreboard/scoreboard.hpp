@@ -13,6 +13,9 @@
 
 struct ScoreboardId {
 	//
+	__int64 getId() {
+		return *(__int64*)this;
+	}
 };
 struct PlayerScoreboardId {
 	//
@@ -40,6 +43,14 @@ struct Objective {
 	}
 	auto getplayerscoreinfo(ScoreInfo* a1, PlayerScoreboardId* a2) {
 		return SYMCALL(ScoreInfo*, MSSYM_B1QE14getPlayerScoreB1AA9ObjectiveB2AAA4QEBAB1QE11AUScoreInfoB2AAE16AEBUScoreboardIdB3AAAA1Z, this, a1, a2);
+	}
+	//获取计分板名称
+	auto getscorename() {		// IDA Objective::Objective
+		return *(std::string*)((VA)this + 64);
+	}
+	//获取计分板展示名称
+	auto getscoredisplayname() {
+		return *(std::string*)((VA)this + 96);
 	}
 };
 
@@ -69,10 +80,9 @@ struct Scoreboard {
 		VA result = ((VA(*)(VA, VA, VA, VA))(v13 + 4687888))((VA)this, (VA)&x, (VA)&t, v15);
 		return result;
 	}
-	VA createActorScoreboardId(Actor* a) {
-		auto v12 = GetModuleHandleW(0);
-		VA result = ((VA(*)(VA, VA))(v12 + 4692228))((VA)this, (VA)a);
-		return result;
+	VA createPlayerScoreboardId(Player* a) {
+		return SYMCALL(VA, MSSYM_B1QE18createScoreboardIdB1AE16ServerScoreboardB2AAE20UEAAAEBUScoreboardIdB2AAE10AEBVPlayerB3AAAA1Z,
+			this, a);
 	}
 	auto getScoreboardId(std::string* str) {
 		return SYMCALL(ScoreboardId*, MSSYM_MD5_ecded9d31b4a1c24ba985b0a377bef64, this, str);

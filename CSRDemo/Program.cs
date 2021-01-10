@@ -53,8 +53,9 @@ namespace CSRDemo
                         }
                         // 常规组件测试
                         Console.WriteLine("玩家攻击力组件：{0}，玩家碰撞箱组件：{1}，玩家生命值组件：{2}，玩家位置组件：{3}，玩家转角组件：{4}" +
-                        "，玩家所处维度：{5}，玩家实体类型：{6}，玩家查询流水号：{7}，玩家UUID：{8}，玩家名字：{9}",
-                        pl.Attack, pl.CollisionBox, pl.Health, pl.Position, pl.Rotation, pl.DimensionId, pl.TypeId, pl.UniqueId, pl.Uuid, pl.getName());
+                        "，玩家所处维度：{5}，玩家实体类型：{6}，玩家查询流水号：{7}，玩家UUID：{8}，玩家名字：{9}，玩家计分板ID：{10}",
+                        pl.Attack, pl.CollisionBox, pl.Health, pl.Position, pl.Rotation, pl.DimensionId, pl.TypeId, pl.UniqueId, pl.Uuid, pl.getName(),
+						pl.getScoreboardId()/* , pl.createScoreboardId() */);
                     }
                     else if (fe.selected == "1"){
                         // 物品栏测试
@@ -459,6 +460,17 @@ namespace CSRDemo
 					Console.WriteLine("玩家 {0} 在 {1} 的 ({2}) 丢下了 {3} 物品。", ae.playername, ae.dimension, ae.XYZ.x.ToString("F2") + "," +
 						ae.XYZ.y.ToString("F2") + "," + ae.XYZ.z.ToString("F2"), ae.itemname);
 				}
+				return true;
+			});
+			api.addAfterActListener(EventKey.onScoreChanged, x =>
+			{
+				Console.WriteLine("[CS] type = {0}, mode = {1}, result= {2}", x.type, x.mode, x.result);
+				ScoreChangedEvent ae = BaseEvent.getFrom(x) as ScoreChangedEvent;
+				if (ae != null)
+                {
+					Console.WriteLine("计分板 {0} (显示名称：{1}，id：{2})分数改变为 {3}",
+						ae.objectivename, ae.displayname, ae.scoreboardid, ae.score);
+                }
 				return true;
 			});
 			#region 非社区部分内容

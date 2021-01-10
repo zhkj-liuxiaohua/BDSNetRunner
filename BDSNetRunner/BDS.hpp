@@ -350,6 +350,10 @@ struct Player : Mob {
 	static std::string sgetIPPort(Player*);
 	// 导出API，增加玩家等级
 	static void saddLevel(Player*, int);
+	// 导出API，获取玩家对应计分板ID值
+	static __int64 sgetScoreboardId(Player*);
+	// 导出API，创建玩家对应计分板并获取其ID值
+	static __int64 screateScoreboardId(Player*);
 	// 导出API，查询指定维度指定坐标范围内所有玩家
 	static std::vector<VA*>* sgetPlayers(int, float, float, float, float, float, float);
 #pragma endregion

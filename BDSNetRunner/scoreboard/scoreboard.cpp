@@ -3,7 +3,7 @@
 
 #if (MODULE_05007)
 
-static Scoreboard* scoreboard;//储存计分板名称
+Scoreboard* scoreboard;//储存计分板名称
 
 //获取玩家在指定计分板下的内容（返回整数，在这个计分板下这个玩家的值）
 int getscoreboard(Player* p, std::string objname) {
@@ -30,7 +30,7 @@ bool setscoreboard(Player* p, std::string objname, int count) {
 	VA scoreid = (VA)scoreboard->getScoreboardID(p);
 	if (scoreid == (VA)SYM_POINT(VA, MSSYM_B1QA7INVALIDB1AE12ScoreboardIdB2AAA32U1B1AA1A)) {
 		std::cout << u8"[CSR] 未能找到玩家对应计分板，自动设置: " << objname << std::endl;
-		scoreid = scoreboard->createActorScoreboardId(p);
+		scoreid = scoreboard->createPlayerScoreboardId(p);
 	}
 	if (!scoreid || scoreid == (VA)SYM_POINT(VA, MSSYM_B1QA7INVALIDB1AE12ScoreboardIdB2AAA32U1B1AA1A))
 		return false;

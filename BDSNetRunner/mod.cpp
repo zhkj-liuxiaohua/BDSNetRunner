@@ -14,6 +14,7 @@
 #include "GUI/SimpleForm.h"
 #include <mutex>
 #include "commands/commands.h"
+#include "scoreboard/scoreboard.hpp"
 #pragma comment(lib, "mscoree.lib")
 
 // 当前插件平台版本号
@@ -701,6 +702,8 @@ UINT sendCustomForm(char* uuid, char* json) {
 
 #if (MODULE_05007)
 
+extern Scoreboard* scoreboard;
+
 // 函数名：getscorebroardValue
 // 功能：获取指定玩家指定计分板上的数值
 // 参数个数：2个
@@ -1145,6 +1148,21 @@ void Player::saddLevel(Player* p, int lv) {
 	SYMCALL(void, MSSYM_B1QA9addLevelsB1AA6PlayerB2AAA6UEAAXHB1AA1Z, p, lv);
 }
 
+__int64 Player::sgetScoreboardId(Player* p) {
+	if (scoreboard) {
+		auto idptr = scoreboard->getScoreboardID(p);
+		return *(__int64*)idptr;
+	}
+	return -1;
+}
+__int64 Player::screateScoreboardId(Player* p) {
+	if (scoreboard) {
+		auto idptr = scoreboard->createPlayerScoreboardId(p);
+		return *(__int64*)idptr;
+	}
+	return -1;
+}
+
 std::vector<VA*>* Player::sgetPlayers(int did, float x1, float y1, float z1, float x2, float y2, float z2) {
 	if (p_level) {
 		if (did > -1 && did < 3) {
@@ -1190,6 +1208,8 @@ public:
 		mcMethods[m.PLAYER_GET_UUID] = &Player::sgetUuid;
 		mcMethods[m.PLAYER_GET_IPPORT] = &Player::sgetIPPort;
 		mcMethods[m.PLAYER_ADD_LEVEL] = &Player::saddLevel;
+		mcMethods[m.PLAYER_GET_SCOREID] = &Player::sgetScoreboardId;
+		mcMethods[m.PLAYER_CREATE_SCOREID] = &Player::screateScoreboardId;
 	}
 	void* getMcMethod(std::string methodname) {
 		return mcMethods[methodname];
@@ -2276,6 +2296,35 @@ static VA ONPICKUPITEM_SYMS[] = { 1, MSSYM_B1QA4takeB1AA6PlayerB2AAA4QEAAB1UE10N
 
 #endif
 
+#if MODULE_05007
+// 计分板分数改变
+static void _CS_ONSCORECHANGED(Scoreboard* class_this, ScoreboardId* a2, Objective* a3) {
+	Events e;
+	e.type = EventType::onScoreChanged;
+	e.mode = ActMode::BEFORE;
+	e.result = 0;
+	ScoreChangedEvent pe;
+	autoByteCpy(&pe.objectivename, a3->getscorename().c_str());
+	autoByteCpy(&pe.displayname, a3->getscoredisplayname().c_str());
+	pe.scoreboardid = a2->getId();
+	VA sc[2]{0};
+	pe.score = a3->getscoreinfo((ScoreInfo*)sc, a2)->getcount();
+	e.data = &pe;
+	bool ret = runCscode(ActEvent.ONSCORECHANGED, ActMode::BEFORE, e);
+	if (ret) {
+		auto original = (void(*)(Scoreboard*, ScoreboardId *, Objective *)) * getOriginalData(_CS_ONSCORECHANGED);
+		original(class_this, a2, a3);
+		e.result = ret;
+		e.mode = ActMode::AFTER;
+		runCscode(ActEvent.ONSCORECHANGED, ActMode::AFTER, e);
+	}
+	pe.releaseAll();
+}
+static VA ONSCORECHANGED_SYMS[] = { 1, MSSYM_B1QE14onScoreChangedB1AE16ServerScoreboardB2AAE21UEAAXAEBUScoreboardIdB2AAE13AEBVObjectiveB3AAAA1Z,
+	(VA)_CS_ONSCORECHANGED };
+
+#endif
+
 // 初始化各类hook的事件绑定，基于构造函数
 static struct EventSymsInit{
 public:
@@ -2310,6 +2359,9 @@ public:
 		sListens[ActEvent.ONMOBSPAWNCHECK] = ONMOBSPAWNCHECK_SYMS;
 		sListens[ActEvent.ONDROPITEM] = ONDROPITEM_SYMS;
 		sListens[ActEvent.ONPICKUPITEM] = ONPICKUPITEM_SYMS;
+#endif
+#if MODULE_05007
+		sListens[ActEvent.ONSCORECHANGED] = ONSCORECHANGED_SYMS;
 #endif
 #if (COMMERCIAL)
 		isListened[ActEvent.ONMOBHURT] = true;

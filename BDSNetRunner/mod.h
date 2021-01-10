@@ -4,8 +4,9 @@
 // 社区版/商业版
 #define COMMERCIAL 0
 
-// 标识贡献者 05007，kengwang
+// 标识贡献者 05007
 #define MODULE_05007 1
+// 标识贡献者 kengwang
 #define MODULE_KENGWANG 1
 
 extern void init();
