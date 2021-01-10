@@ -1667,7 +1667,10 @@ namespace CSR
 			return puie;
 		}
 	}
-
+	/// <summary>
+	/// 计分板分数改变监听<br/>
+	/// 拦截可否：否
+	/// </summary>
 	public class ScoreChangedEvent : BaseEvent
 	{
 		protected string mobjectivename;
