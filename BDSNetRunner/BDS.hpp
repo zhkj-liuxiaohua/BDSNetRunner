@@ -289,7 +289,8 @@ struct Actor {
 			MSSYM_B1QA6getPosB1AA5ActorB2AAE12UEBAAEBVVec3B2AAA2XZ, this);
 	}
 
-	// 获取生物类型
+#if 0
+	// 获取生物类型，无法获取命名生物正确类型，本函数废弃
 	std::string getTypeName() {
 		std::string actor_typename;					// IDA ActorCommandOrigin::getName CommandUtils::getActorName
 		SYMCALL(std::string&,
@@ -297,6 +298,7 @@ struct Actor {
 			&actor_typename, this);
 		return actor_typename;
 	}
+#endif
 
 	// 获取实体类型
 	int getEntityTypeId() {

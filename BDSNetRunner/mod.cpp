@@ -1920,7 +1920,7 @@ static bool _CS_ONATTACK(Player* pPlayer, Actor* pa) {
 	de.pattackedentity = pa;
 	memcpy(&de.actorpos, pa->getPos(), sizeof(Vec3));
 	autoByteCpy(&de.actorname, pa->getNameTag().c_str());
-	autoByteCpy(&de.actortype, pa->getTypeName().c_str());
+	autoByteCpy(&de.actortype, pa->getEntityTypeName().c_str());
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONATTACK, ActMode::BEFORE, e);
 	if (ret) {
@@ -2221,7 +2221,7 @@ static bool _CS_ONMOBSPAWNCHECK(Mob* a1, VA a2) {
 	me.pmob = a1;
 	autoByteCpy(&me.dimension, toDimenStr(me.dimensionid).c_str());
 	autoByteCpy(&me.mobname, a1->getNameTag().c_str());
-	autoByteCpy(&me.mobtype, a1->getTypeName().c_str());
+	autoByteCpy(&me.mobtype, a1->getEntityTypeName().c_str());
 	memcpy(&me.XYZ, a1->getPos(), sizeof(Vec3));
 	e.data = &me;
 	bool ret = runCscode(ActEvent.ONMOBSPAWNCHECK, ActMode::BEFORE, e);
