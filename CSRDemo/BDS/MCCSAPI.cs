@@ -163,6 +163,15 @@ namespace CSR
 		private SETSCOREBOARDVALUEFUNC csetscoreboardValue;
 		private delegate bool SETSERVERMOTD(string motd, bool isShow);
 		private SETSERVERMOTD csetServerMotd;
+		/// <summary>
+		/// 脚本引擎执行功能结果回调
+		/// </summary>
+		/// <param name="r">是否执行成功</param>
+		public delegate void JSECab(bool r);
+		private delegate void JSERUNSCRIPT(string js, JSECab cb);
+		private JSERUNSCRIPT cJSErunScript;
+		private delegate void JSEFIRECUSTOMEVENT(string ename, string jdata,  JSECab cb);
+		private JSEFIRECUSTOMEVENT cJSEfireCustomEvent;
 		private delegate IntPtr GETEXTRAAPI(string apiname);
 		private GETEXTRAAPI cgetExtraAPI;
 
@@ -221,6 +230,8 @@ namespace CSR
 			cruncmdAs = Invoke<RENAMEBYUUIDFUNC>("runcmdAs");
 			cdisconnectClient = Invoke<RENAMEBYUUIDFUNC>("disconnectClient");
 			csendText = Invoke<RENAMEBYUUIDFUNC>("sendText");
+			cJSErunScript = Invoke<JSERUNSCRIPT>("JSErunScript");
+			cJSEfireCustomEvent = Invoke<JSEFIRECUSTOMEVENT>("JSEfireCustomEvent");
 			csendSimpleForm = Invoke<SENDSIMPLEFORMFUNC>("sendSimpleForm");
 			csendModalForm = Invoke<SENDMODALFORMFUNC>("sendModalForm");
 			csendCustomForm = Invoke<SENDCUSTOMFORMFUNC>("sendCustomForm");
@@ -739,6 +750,30 @@ namespace CSR
         {
 			return (csendText != null) && csendText(uuid, msg);
 		}
+
+		/// <summary>
+		/// 使用官方脚本引擎新增一段行为包脚本并执行<br/>
+		/// （注：每次调用都会新增脚本环境，请避免多次重复调用此方法）
+		/// </summary>
+		/// <param name="js">脚本文本</param>
+		/// <param name="cb">结果回调</param>
+		public void JSErunScript(string js, JSECab cb)
+        {
+			if (cJSErunScript != null)
+				cJSErunScript(js, cb);
+        }
+
+		/// <summary>
+		/// 使用官方脚本引擎发送一个自定义事件广播
+		/// </summary>
+		/// <param name="ename">自定义事件名称（不能以minecraft:开头）</param>
+		/// <param name="jdata">事件内容JSON文本</param>
+		/// <param name="cb">结果回调</param>
+		public void JSEfireCustomEvent(string ename, string jdata, JSECab cb)
+        {
+			if (cJSEfireCustomEvent != null)
+				cJSEfireCustomEvent(ename, jdata, cb);
+        }
 
 		/// <summary>
 		/// 向指定的玩家发送一个简单表单

@@ -113,6 +113,8 @@ static VA p_level = 0;
 
 static VA p_ServerNetworkHandle = 0;
 
+static VA p_jsen = 0;
+
 static HMODULE GetSelfModuleHandle()
 {
 	MEMORY_BASIC_INFORMATION mbi;
@@ -586,6 +588,86 @@ bool sendText(const char* uuid, const char* txt) {
 		}
 	}
 	return false;
+}
+
+
+// 自增长临时脚本ID
+static VA tmpjsid = 0;
+// 获取临时脚本ID值，调用一次自增长一次
+static VA getTmpJsId() {
+	return tmpjsid++;
+}
+// 函数名：JSErunScript
+// 功能：请求执行一段行为包脚本
+// 参数个数：2个
+// 参数类型：字符串，函数指针
+// 参数详解：content - 脚本文本，callb - 执行结果回调函数
+// （注：每次调用都会新增脚本环境，请避免多次重复调用此方法）
+void JSErunScript(const char* content, void(*callb)(bool)) {
+	if (p_jsen) {
+		std::string uc = GBKToUTF8(content);
+		auto fn = [uc, callb]() {
+			std::string name = u8"CSR_tmpscript_" + std::to_string(getTmpJsId());
+			std::string rfcontent = u8"(function(){\n" + uc + u8"\n}())";
+			auto v32 = GetModuleHandleW(NULL) + 1611876;
+			bool ret = ((bool(*)(VA, std::string&, std::string&))v32)(
+				p_jsen, name, rfcontent);
+			if (callb != nullptr)
+				callb(ret);
+		};
+		safeTick(fn);
+	}
+	else {
+		if (callb != nullptr)
+			callb(false);
+	}
+}
+
+struct JSON_VALUE {
+	VA fill[2]{ 0 };
+public:
+	JSON_VALUE() {
+		SYMCALL(VA, MSSYM_B2QQA60ValueB1AA4JsonB2AAA4QEAAB1AE11W4ValueTypeB1AA11B2AAA1Z, this, 1);
+	}
+	~JSON_VALUE() {
+		SYMCALL(VA, MSSYM_B2QQA61ValueB1AA4JsonB2AAA4QEAAB1AA2XZ, this);
+	}
+};
+struct ScriptEventData {
+	VA vtabl;
+	std::string eventName;
+};
+struct CustomScriptEventData : ScriptEventData {
+	JSON_VALUE mdata;
+};
+// 函数名：JSEfireCustomEvent
+// 功能：请求发送一个自定义行为包脚本事件广播
+// 参数个数：3个
+// 参数类型：字符串，字符串，函数指针
+// 参数详解：name - 自定义事件名称(不得以minecraft:开头)，jdata - JSON格式文本，callb - 执行结果回调函数
+void JSEfireCustomEvent(const char* name, const char* jdata, void(*callb)(bool)) {
+	if (p_jsen) {
+		std::string unanme = GBKToUTF8(name);
+		std::string ujdata = GBKToUTF8(jdata);
+		auto fn = [unanme, ujdata, callb]() {
+			CustomScriptEventData edata;
+			auto v13 = GetModuleHandleW(NULL) + 6448064;
+			edata.vtabl = (VA)v13;
+			edata.eventName = unanme;
+			auto v5 = GetModuleHandleW(NULL);
+			((void(*)(void*, const char*))(v5 + 1385528))(&edata.mdata, ujdata.c_str());
+			bool ret = ((bool(*)(VA, VA))(v5 + 2818436))(p_jsen, (VA)&edata);
+			if (callb != nullptr) {
+				callb(ret);
+			}
+		};
+		safeTick(fn);
+	}
+	else {
+		if (callb != nullptr) {
+			callb(false);
+		}
+	}
 }
 
 // 判断指针是否为玩家列表中指针
@@ -2325,6 +2407,77 @@ static VA ONSCORECHANGED_SYMS[] = { 1, MSSYM_B1QE14onScoreChangedB1AE16ServerSco
 
 #endif
 
+// 官方脚本引擎初始化
+static bool _CS_ONSCRIPTENGINEINIT(VA jse) {
+	Events e;
+	e.type = EventType::onScriptEngineInit;
+	e.mode = ActMode::BEFORE;
+	e.result = 0;
+	ScriptEngineInitEvent pe;
+	pe.jsen = jse;
+	e.data = &pe;
+	bool ret = runCscode(ActEvent.ONSCRIPTENGINEINIT, ActMode::BEFORE, e);
+	if (ret) {
+		auto original = (bool(*)(VA)) * getOriginalData(_CS_ONSCRIPTENGINEINIT);
+		ret = original(jse);
+		e.result = ret;
+		e.mode = ActMode::AFTER;
+		runCscode(ActEvent.ONSCRIPTENGINEINIT, ActMode::AFTER, e);
+	}
+	return ret;
+}
+static VA ONSCRIPTENGINEINIT_SYMS[] = { 1, MSSYM_B1QE10initializeB1AE12ScriptEngineB2AAA4UEAAB1UA3NXZ,
+	(VA)_CS_ONSCRIPTENGINEINIT };
+
+// 官方脚本引擎输出日志信息
+static bool _CS_ONSCRIPTENGINELOG(VA jse, std::string* log) {
+	Events e;
+	e.type = EventType::onScriptEngineLog;
+	e.mode = ActMode::BEFORE;
+	e.result = 0;
+	ScriptEngineLogEvent pe;
+	pe.jsen = jse;
+	autoByteCpy(&pe.log, log->c_str());
+	e.data = &pe;
+	bool ret = runCscode(ActEvent.ONSCRIPTENGINELOG, ActMode::BEFORE, e);
+	if (ret) {
+		auto original = (bool(*)(VA)) * getOriginalData(_CS_ONSCRIPTENGINELOG);
+		ret = original(jse);
+		e.result = ret;
+		e.mode = ActMode::AFTER;
+		runCscode(ActEvent.ONSCRIPTENGINELOG, ActMode::AFTER, e);
+	}
+	pe.releaseAll();
+	return ret;
+}
+static VA ONSCRIPTENGINELOG_SYMS[] = { 1, MSSYM_MD5_a46384deb7cfca46ec15102954617155 ,
+	(VA)_CS_ONSCRIPTENGINELOG };
+
+// 官方脚本引擎执行指令
+static bool _CS_ONSCRIPTENGINECMD(VA a1, VA jscmd) {
+	std::string* cmd = (std::string*)(jscmd + 8);
+	Events e;
+	e.type = EventType::onScriptEngineCmd;
+	e.mode = ActMode::BEFORE;
+	e.result = 0;
+	ScriptEngineCmdEvent pe;
+	pe.jsen = p_jsen;
+	autoByteCpy(&pe.log, cmd->c_str());
+	e.data = &pe;
+	bool ret = runCscode(ActEvent.ONSCRIPTENGINECMD, ActMode::BEFORE, e);
+	if (ret) {
+		auto original = (bool(*)(VA, VA)) * getOriginalData(_CS_ONSCRIPTENGINECMD);
+		ret = original(a1, jscmd);
+		e.result = ret;
+		e.mode = ActMode::AFTER;
+		runCscode(ActEvent.ONSCRIPTENGINECMD, ActMode::AFTER, e);
+	}
+	pe.releaseAll();
+	return ret;
+}
+static VA ONSCRIPTENGINECMD_SYMS[] = { 1, MSSYM_B1QE14executeCommandB1AE27MinecraftServerScriptEngineB2AAA4UEAAB1UE18NAEBUScriptCommandB3AAAA1Z ,
+	(VA)_CS_ONSCRIPTENGINECMD };
+
 // 初始化各类hook的事件绑定，基于构造函数
 static struct EventSymsInit{
 public:
@@ -2363,6 +2516,9 @@ public:
 #if MODULE_05007
 		sListens[ActEvent.ONSCORECHANGED] = ONSCORECHANGED_SYMS;
 #endif
+		sListens[ActEvent.ONSCRIPTENGINEINIT] = ONSCRIPTENGINEINIT_SYMS;
+		sListens[ActEvent.ONSCRIPTENGINELOG] = ONSCRIPTENGINELOG_SYMS;
+		sListens[ActEvent.ONSCRIPTENGINECMD] = ONSCRIPTENGINECMD_SYMS;
 #if (COMMERCIAL)
 		isListened[ActEvent.ONMOBHURT] = true;
 		isListened[ActEvent.ONBLOCKCMD] = true;

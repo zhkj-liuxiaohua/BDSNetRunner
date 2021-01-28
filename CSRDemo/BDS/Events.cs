@@ -154,6 +154,18 @@ namespace CSR
 		/// onScoreChanged - 计分板数值改变事件
 		/// </summary>
 		public const string onScoreChanged = "onScoreChanged";
+		/// <summary>
+		/// onScriptEngineInit - 官方脚本引擎初始化
+		/// </summary>
+		public const string onScriptEngineInit = "onScriptEngineInit";
+		/// <summary>
+		/// onScriptEngineLog - 官方脚本接收到日志
+		/// </summary>
+		public const string onScriptEngineLog = "onScriptEngineLog";
+		/// <summary>
+		/// onScriptEngineCmd - 官方脚本引擎执行指令
+		/// </summary>
+		public const string onScriptEngineCmd = "onScriptEngineCmd";
 	}
 
 	public enum EventType {
@@ -191,7 +203,10 @@ namespace CSR
 		onMobSpawnCheck = 31,
 		onDropItem = 32,
 		onPickUpItem = 33,
-		onScoreChanged = 34
+		onScoreChanged = 34,
+		onScriptEngineInit = 35,
+		onScriptEngineLog = 36,
+		onScriptEngineCmd = 37
 	}
 
 	public enum ActMode {
@@ -397,6 +412,12 @@ namespace CSR
 						return DropItemEvent.getFrom(e);
 					case EventType.onScoreChanged:
 						return ScoreChangedEvent.getFrom(e);
+					case EventType.onScriptEngineInit:
+						return ScriptEngineInitEvent.getFrom(e);
+					case EventType.onScriptEngineLog:
+						return ScriptEngineLogEvent.getFrom(e);
+					case EventType.onScriptEngineCmd:
+						return ScriptEngineCmdEvent.getFrom(e);
 					default:
 						// do nothing
 						break;
@@ -1704,6 +1725,73 @@ namespace CSR
 			sce.mdisplayname = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 8));
 			sce.mscoreboardid = Marshal.ReadInt64(s, 16);
 			sce.mscore = Marshal.ReadInt32(s, 24);
+			return sce;
+		}
+	}
+
+	/// <summary>
+	/// 官方脚本引擎初始化监听<br/>
+	/// 拦截可否：否
+	/// </summary>
+	public class ScriptEngineInitEvent : BaseEvent
+    {
+		protected IntPtr mjseptr;
+		/// <summary>
+		/// 脚本引擎指针
+		/// </summary>
+		public IntPtr jseptr { get { return mjseptr; } }
+		public static new ScriptEngineInitEvent getFrom(Events e)
+		{
+			var sce = createHead(e, EventType.onScriptEngineInit, typeof(ScriptEngineInitEvent)) as ScriptEngineInitEvent;
+			if (sce == null)
+				return null;
+			IntPtr s = e.data;  // 此处为转换过程
+			sce.mjseptr = Marshal.ReadIntPtr(s, 0);
+			return sce;
+		}
+	}
+
+	/// <summary>
+	/// 官方脚本引擎接收日志信息监听<br/>
+	/// 拦截可否：是
+	/// </summary>
+	public class ScriptEngineLogEvent : ScriptEngineInitEvent
+    {
+		protected string mlog;
+		/// <summary>
+		/// 官方脚本引擎输出信息（当脚本引擎开启日志功能时可捕获此内容）
+		/// </summary>
+		public string log { get { return mlog; } }
+		public static new ScriptEngineLogEvent getFrom(Events e)
+		{
+			var sce = createHead(e, EventType.onScriptEngineLog, typeof(ScriptEngineLogEvent)) as ScriptEngineLogEvent;
+			if (sce == null)
+				return null;
+			IntPtr s = e.data;  // 此处为转换过程
+			sce.mjseptr = Marshal.ReadIntPtr(s, 0);
+			sce.mlog = StrTool.readUTF8str(Marshal.ReadIntPtr(s, 8));
+			return sce;
+		}
+	}
+	/// <summary>
+	/// 官方脚本引擎执行指令监听<br/>
+	/// 拦截可否：是
+	/// </summary>
+	public class ScriptEngineCmdEvent : ScriptEngineInitEvent
+	{
+		protected string mcmd;
+		/// <summary>
+		/// 官方脚本引擎执行指令
+		/// </summary>
+		public string cmd { get { return mcmd; } }
+		public static new ScriptEngineCmdEvent getFrom(Events e)
+		{
+			var sce = createHead(e, EventType.onScriptEngineCmd, typeof(ScriptEngineCmdEvent)) as ScriptEngineCmdEvent;
+			if (sce == null)
+				return null;
+			IntPtr s = e.data;  // 此处为转换过程
+			sce.mjseptr = Marshal.ReadIntPtr(s, 0);
+			sce.mcmd = StrTool.readUTF8str(Marshal.ReadIntPtr(s, 8));
 			return sce;
 		}
 	}

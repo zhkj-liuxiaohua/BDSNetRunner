@@ -36,7 +36,10 @@ enum class EventType : UINT16 {
 	onMobSpawnCheck = 31,
 	onDropItem = 32,
 	onPickUpItem = 33,
-	onScoreChanged = 34
+	onScoreChanged = 34,
+	onScriptEngineInit = 35,
+	onScriptEngineLog = 36,
+	onScriptEngineCmd = 37
 };
 
 // 监听模式
@@ -78,6 +81,9 @@ struct ACTEVENT {
 	const std::string ONDROPITEM = u8"onDropItem";
 	const std::string ONPICKUPITEM = u8"onPickUpItem";
 	const std::string ONSCORECHANGED = u8"onScoreChanged";
+	const std::string ONSCRIPTENGINEINIT = u8"onScriptEngineInit";
+	const std::string ONSCRIPTENGINELOG = u8"onScriptEngineLog";
+	const std::string ONSCRIPTENGINECMD = u8"onScriptEngineCmd";
 #if (COMMERCIAL)
 	const std::string ONMOBHURT = u8"onMobHurt";
 	const std::string ONBLOCKCMD = u8"onBlockCmd";
@@ -694,4 +700,28 @@ public:
 			displayname = NULL;
 		}
 	}
+};
+
+struct ScriptEngineInitEvent {
+	VA jsen;		// 官方脚本引擎指针
+public:
+	ScriptEngineInitEvent() {
+		memset(this, 0, sizeof(ScriptEngineInitEvent));
+	}
+};
+
+struct ScriptEngineLogEvent : ScriptEngineInitEvent {
+	char* log;		// 官方脚本引擎log输出信息
+public:
+	ScriptEngineLogEvent() {
+		memset(this, 0, sizeof(ScriptEngineLogEvent));
+	}
+	void releaseAll() {
+		if (log) {
+			delete log;
+			log = NULL;
+		}
+	}
+};
+struct ScriptEngineCmdEvent : ScriptEngineLogEvent {
 };

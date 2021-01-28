@@ -4,6 +4,9 @@ using System.Collections.Generic;
 using System.Text;
 using CSR;
 using System.Web.Script.Serialization;
+using System.Threading;
+using System.IO;
+
 namespace CSRDemo
 {
 	class Program {
@@ -462,6 +465,7 @@ namespace CSRDemo
 				}
 				return true;
 			});
+			// 计分板数值改变事件
 			api.addAfterActListener(EventKey.onScoreChanged, x =>
 			{
 				Console.WriteLine("[CS] type = {0}, mode = {1}, result= {2}", x.type, x.mode, x.result);
@@ -471,6 +475,66 @@ namespace CSRDemo
 					Console.WriteLine("计分板 {0} (显示名称：{1}，id：{2})分数改变为 {3}",
 						ae.objectivename, ae.displayname, ae.scoreboardid, ae.score);
                 }
+				return true;
+			});
+			// 官方脚本引擎初始化监听
+			api.addAfterActListener(EventKey.onScriptEngineInit, x =>
+			{
+				Console.WriteLine("[CS] type = {0}, mode = {1}, result= {2}", x.type, x.mode, x.result);
+				ScriptEngineInitEvent ae = BaseEvent.getFrom(x) as ScriptEngineInitEvent;
+				if (ae != null && ae.RESULT)
+				{
+					Console.WriteLine("脚本引擎已初始化成功，addr={0}",
+						ae.jseptr);
+					// 延时1s载入外置行为包脚本；延时3s发送一个自定义事件；延时1s载入一段临时脚本
+					new Thread(() =>
+					{
+						Thread.Sleep(1000);
+						try
+						{       // 测试临时行为包脚本注意事项：runScript情况下不会经过 initialize 调用，需主动设置初始化
+							string js = File.ReadAllText("test.js");
+							api.JSErunScript(js, (r) => {
+								if (r)
+									Console.WriteLine("外置测试行为包脚本载入成功。");
+							});
+						} catch { }
+						Thread.Sleep(3000);
+						string jdata = new JavaScriptSerializer().Serialize(new { text = "这是一个自定义测试消息", num = 2021 });
+						api.JSEfireCustomEvent("mytest:testevent", jdata, (r) => {
+							if (r)
+								Console.WriteLine("自定义事件广播发送成功。");
+						});
+						Thread.Sleep(1000);
+						api.JSErunScript("var d = 100;\n console.log('这是一个临时测试脚本')", (r)=>{
+							if (r)
+								Console.WriteLine("测试临时脚本执行成功。");
+						});
+					}).Start();
+				}
+				return true;
+			});
+			// 官方脚本引擎接收日志输出信息监听，拦截
+			api.addBeforeActListener(EventKey.onScriptEngineLog, x =>
+			{
+				Console.WriteLine("[CS] type = {0}, mode = {1}, result= {2}", x.type, x.mode, x.result);
+				ScriptEngineLogEvent ae = BaseEvent.getFrom(x) as ScriptEngineLogEvent;
+				if (ae != null)
+				{
+					Console.WriteLine("[来自脚本的LOG输出] {0}",
+						ae.log);
+				}
+				return false;
+			});
+			// 官方脚本引擎执行指令，或可拦截
+			api.addBeforeActListener(EventKey.onScriptEngineCmd, x =>
+			{
+				Console.WriteLine("[CS] type = {0}, mode = {1}, result= {2}", x.type, x.mode, x.result);
+				ScriptEngineCmdEvent ae = BaseEvent.getFrom(x) as ScriptEngineCmdEvent;
+				if (ae != null)
+				{
+					Console.WriteLine("[脚本引擎试图执行指令] {0}",
+						ae.cmd);
+				}
 				return true;
 			});
 			#region 非社区部分内容
