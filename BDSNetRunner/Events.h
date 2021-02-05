@@ -39,7 +39,8 @@ enum class EventType : UINT16 {
 	onScoreChanged = 34,
 	onScriptEngineInit = 35,
 	onScriptEngineLog = 36,
-	onScriptEngineCmd = 37
+	onScriptEngineCmd = 37,
+	onScoreboardInit = 38
 };
 
 // 监听模式
@@ -84,6 +85,7 @@ struct ACTEVENT {
 	const std::string ONSCRIPTENGINEINIT = u8"onScriptEngineInit";
 	const std::string ONSCRIPTENGINELOG = u8"onScriptEngineLog";
 	const std::string ONSCRIPTENGINECMD = u8"onScriptEngineCmd";
+	const std::string ONSCOREBOARDINIT = u8"onScoreboardInit";
 #if (COMMERCIAL)
 	const std::string ONMOBHURT = u8"onMobHurt";
 	const std::string ONBLOCKCMD = u8"onBlockCmd";
@@ -724,4 +726,12 @@ public:
 	}
 };
 struct ScriptEngineCmdEvent : ScriptEngineLogEvent {
+};
+
+struct ScoreboardInitEvent {
+	VA scptr;		// 系统计分板指针
+public:
+	ScoreboardInitEvent() {
+		memset(this, 0, sizeof(ScoreboardInitEvent));
+	}
 };

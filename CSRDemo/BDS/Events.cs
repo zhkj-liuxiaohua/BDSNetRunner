@@ -166,6 +166,10 @@ namespace CSR
 		/// onScriptEngineCmd - 官方脚本引擎执行指令
 		/// </summary>
 		public const string onScriptEngineCmd = "onScriptEngineCmd";
+		/// <summary>
+		/// onScoreboardInit - 系统计分板初始化
+		/// </summary>
+		public const string onScoreboardInit = "onScoreboardInit";
 	}
 
 	public enum EventType {
@@ -206,7 +210,8 @@ namespace CSR
 		onScoreChanged = 34,
 		onScriptEngineInit = 35,
 		onScriptEngineLog = 36,
-		onScriptEngineCmd = 37
+		onScriptEngineCmd = 37,
+		onScoreboardInit = 38
 	}
 
 	public enum ActMode {
@@ -418,6 +423,8 @@ namespace CSR
 						return ScriptEngineLogEvent.getFrom(e);
 					case EventType.onScriptEngineCmd:
 						return ScriptEngineCmdEvent.getFrom(e);
+					case EventType.onScoreboardInit:
+						return ScoreboardInitEvent.getFrom(e);
 					default:
 						// do nothing
 						break;
@@ -1792,6 +1799,27 @@ namespace CSR
 			IntPtr s = e.data;  // 此处为转换过程
 			sce.mjseptr = Marshal.ReadIntPtr(s, 0);
 			sce.mcmd = StrTool.readUTF8str(Marshal.ReadIntPtr(s, 8));
+			return sce;
+		}
+	}
+	/// <summary>
+	/// 系统计分板初始化监听<br/>
+	/// 拦截可否：否
+	/// </summary>
+	public class ScoreboardInitEvent : BaseEvent
+	{
+		protected IntPtr mscptr;
+		/// <summary>
+		/// 系统计分板指针
+		/// </summary>
+		public IntPtr scptr { get { return mscptr; } }
+		public static new ScoreboardInitEvent getFrom(Events e)
+		{
+			var sce = createHead(e, EventType.onScoreboardInit, typeof(ScoreboardInitEvent)) as ScoreboardInitEvent;
+			if (sce == null)
+				return null;
+			IntPtr s = e.data;  // 此处为转换过程
+			sce.mscptr = Marshal.ReadIntPtr(s, 0);
 			return sce;
 		}
 	}

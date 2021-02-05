@@ -66,6 +66,10 @@ MCCSAPI bool sendText(const char*, const char*);
 MCCSAPI void JSErunScript(const char*, void(*)(bool));
 // 请求发送一个自定义行为包脚本事件广播
 MCCSAPI void JSEfireCustomEvent(const char*, const char*, void(*)(bool));
+// 获取离线计分板值
+MCCSAPI int getscoreById(__int64, const char*);
+// 设置离线计分板值
+MCCSAPI int setscoreById(__int64, const char*, int);
 
 // 从此处获取额外API
 MCCSAPI void* getExtraAPI(const char*);
@@ -136,6 +140,10 @@ typedef bool (**removePlayerSidebarFunc)(const char*);
 typedef std::string (**getPlayerPermissionAndGametypeFunc)(const char*);
 // 调用原型：设置玩家权限与游戏模式
 typedef bool (**setPlayerPermissionAndGametypeFunc)(const char*, const char*);
+// 调用原型：获取所有计分板计分项
+typedef std::string(**getAllScoreFunc)();
+// 调用原型：设置所有计分板计分项
+typedef bool (**setAllScoreFunc)(const char*);
 #endif
 
 // 返回实际RVA对应地址

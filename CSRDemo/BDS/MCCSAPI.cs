@@ -123,11 +123,11 @@ namespace CSR
 		private delegate void SETCOMMANDDESCRIBEFUNC(string key, string description, CommandPermissionLevel level, byte flag1, byte flag2);
 		private SETCOMMANDDESCRIBEFUNC csetCommandDescribe;
 		private delegate bool RUNCMDFUNC(string cmd);
-		private RUNCMDFUNC cruncmd, cremovePlayerBossBar, cremovePlayerSidebar;
+		private RUNCMDFUNC cruncmd, cremovePlayerBossBar, cremovePlayerSidebar, csetAllScore;
 		private delegate void LOGOUTFUNC(string cmdout);
 		private LOGOUTFUNC clogout;
 		private delegate Std_String GETONLINEPLAYERSFUNC();
-		private GETONLINEPLAYERSFUNC cgetOnLinePlayers;
+		private GETONLINEPLAYERSFUNC cgetOnLinePlayers, cgetAllScore;
 		private delegate Std_String GETSTRUCTUREFUNC(int did, string jsonposa, string jsonposb, bool exent, bool exblk);
 		private GETSTRUCTUREFUNC cgetStructure;
 		private delegate bool SETSTRUCTUREFUNC(string jdata, int did, string jsonposa, byte rot, bool exent, bool exblk);
@@ -172,6 +172,10 @@ namespace CSR
 		private JSERUNSCRIPT cJSErunScript;
 		private delegate void JSEFIRECUSTOMEVENT(string ename, string jdata,  JSECab cb);
 		private JSEFIRECUSTOMEVENT cJSEfireCustomEvent;
+		private delegate int GETSCOREBYID(long id, string objname);
+		private GETSCOREBYID cgetscoreById;
+		private delegate int SETSCOREBYID(long id, string objname, int count);
+		private SETSCOREBYID csetscoreById;
 		private delegate IntPtr GETEXTRAAPI(string apiname);
 		private GETEXTRAAPI cgetExtraAPI;
 
@@ -241,6 +245,8 @@ namespace CSR
 			cgetscoreboardValue = Invoke<GETSCOREBOARDVALUEFUNC>("getscoreboardValue");
 			csetscoreboardValue = Invoke<SETSCOREBOARDVALUEFUNC>("setscoreboardValue");
 			csetServerMotd = Invoke<SETSERVERMOTD>("setServerMotd");
+			cgetscoreById = Invoke<GETSCOREBYID>("getscoreById");
+			csetscoreById = Invoke<SETSCOREBYID>("setscoreById");
 			ccshook = Invoke<CSHOOKFUNC>("cshook");
 			ccsunhook = Invoke<CSUNHOOKFUNC>("csunhook");
 			cdlsym = Invoke<DLSYMFUNC>("dlsym");
@@ -271,6 +277,8 @@ namespace CSR
 				cremovePlayerSidebar = ConvertExtraFunc<RUNCMDFUNC>("removePlayerSidebar");
 				cgetPlayerPermissionAndGametype = ConvertExtraFunc<GETPLAYERABILITIESFUNC>("getPlayerPermissionAndGametype");
 				csetPlayerPermissionAndGametype = ConvertExtraFunc<RENAMEBYUUIDFUNC>("setPlayerPermissionAndGametype");
+				cgetAllScore = ConvertExtraFunc<GETONLINEPLAYERSFUNC>("getAllScore");
+				csetAllScore = ConvertExtraFunc<RUNCMDFUNC>("setAllScore");
 			}
 			#endregion
 		}
@@ -485,7 +493,32 @@ namespace CSR
 		public bool setStructure(string jdata, int did, string jsonposa, byte rot, bool exent, bool exblk) {
 			return (csetStructure != null) && csetStructure(jdata, did, jsonposa, rot, exent, exblk);
 		}
-		
+
+		/// <summary>
+		/// 获取所有计分板计分项
+		/// </summary>
+		/// <returns>计分板json字符串</returns>
+		public string getAllScore()
+        {
+			try
+			{
+				return (cgetAllScore != null) ? StrTool.c_str(cgetAllScore()) :
+				string.Empty;
+			}
+			catch (Exception e) { Console.WriteLine(e.StackTrace); }
+			return string.Empty;
+		}
+		/// <summary>
+		/// 设置所有计分板计分项<br/>
+		/// 注：设置过程会清空原有数据
+		/// </summary>
+		/// <param name="jdata">计分板json字符串</param>
+		/// <returns>是否设置成功</returns>
+		public bool setAllScore(string jdata)
+        {
+			return (csetAllScore != null) && csetAllScore(jdata);
+		}
+
 		/// <summary>
 		/// 重命名一个指定的玩家名<br/>
 		/// 注：该函数可能不会变更客户端实际显示名
@@ -902,7 +935,29 @@ namespace CSR
         {
 			return csetServerMotd != null && csetServerMotd(motd, isShow);
         }
-
+		/// <summary>
+		/// 获取指定ID对应于计分板上的数值
+		/// </summary>
+		/// <param name="id">离线计分板的id</param>
+		/// <param name="objname">计分板登记的名称，若不存在则自动添加</param>
+		/// <returns>获取的目标值，若目标不存在则返回0</returns>
+		public int getscoreById(long id, string objname)
+        {
+			return (cgetscoreById != null) ? cgetscoreById(id, objname) :
+				0;
+		}
+		/// <summary>
+		/// 设置指定id对应于计分板上的数值
+		/// </summary>
+		/// <param name="id">离线计分板的id</param>
+		/// <param name="objname">计分板登记的名称，若不存在则自动添加</param>
+		/// <param name="count">待设置的值</param>
+		/// <returns>设置后的目标值，若未成功则返回0</returns>
+		public int setscoreById(long id, string objname, int count)
+        {
+			return (csetscoreById != null) ? csetscoreById(id, objname, count) :
+				0;
+		}
 		// 底层相关
 
 		/// <summary>

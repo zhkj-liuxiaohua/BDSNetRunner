@@ -815,6 +815,76 @@ bool setscoreboardValue(const char* uuid, const char* objname, int count) {
 }
 
 #endif
+// 找到一个ID
+static bool findScoreboardId(__int64 id, void* outid) {
+	struct RDATA { VA fill[3]; };
+	std::vector<RDATA> rs;
+	auto v5 = GetModuleHandleW(0);
+	((VA(*)(VA, VA))(v5 + 4689216))((VA)scoreboard, (VA)&rs);
+	bool finded = false;
+	if (rs.size() > 0)
+	{
+		for (auto& x : rs) {
+			if (x.fill[2] == id) {
+				memcpy(outid, &(x.fill[2]), 16);
+				finded = true;
+				break;
+			}
+		}
+	}
+	return finded;
+}
+// 函数名：getscoreById
+// 功能：获取指定ID对应于计分板上的数值
+// 参数个数：2个
+// 参数类型：长整型，字符串
+// 参数详解：id - 离线计分板的id，objname - 计分板登记的名称
+// 返回值：若ID存在便返回具体值，若不存在则一律返回0
+// （注：特定情况下会自动创建计分板）
+int getscoreById(__int64 id, const char* objname) {
+	if (!scoreboard)
+		return 0;
+	auto testobj = scoreboard->getObjective(objname);
+	if (!testobj) {
+		std::cout << u8"[CSR] 未能找到对应计分板，自动创建：" << objname << std::endl;
+		testobj = scoreboard->addObjective(objname, objname);
+		return 0;
+	}
+	__int64 a2[2];
+	__int64 sid[2]{0};
+	sid[0] = id;
+	if (findScoreboardId(id, sid)) {
+		auto scores = ((Objective*)testobj)->getplayerscoreinfo((ScoreInfo*)a2, (PlayerScoreboardId*)&sid);
+		return scores->getcount();
+	}
+	return 0;
+}
+
+// 函数名：setscoreById
+// 功能：设置指定id对应于计分板上的数值
+// 参数个数：3个
+// 参数类型：长整型，字符串，数值
+// 参数详解：id - 离线计分板的id，objname - 计分板登记的名称，count - 待设置的值
+// 返回值：若设置成功则为新数值，未成功则一律返回0
+// （注：特定情况下会自动创建计分板）
+int setscoreById(__int64 id, const char* objname, int count) {
+	if (!scoreboard)
+		return 0;
+	__int64 sid[2]{0};
+	sid[0] = id;
+	auto testobj = scoreboard->getObjective(objname);
+	if (!testobj) {
+		std::cout << u8"[CSR] 未能找到对应计分板，自动创建: " << objname << std::endl;
+		testobj = scoreboard->addObjective(objname, objname);
+	}
+	if (!testobj)
+		return 0;
+	if (!findScoreboardId(id, sid)) {
+		auto v22 = GetModuleHandleW(0) + 4689324;
+		((void(*)(VA, VA, std::string))v22)((VA)scoreboard, (VA)sid, std::to_string(id));
+	}
+	return scoreboard->modifyPlayerScore((ScoreboardId*)sid, (Objective*)testobj, count);
+}
 
 // 附加玩家信息
 static void addPlayerInfo(PlayerEvent* pe, Player* p) {
@@ -1362,6 +1432,15 @@ THook2(_CS_ONLISTCMDREG, VA, MSSYM_B1QA5setupB1AE11ListCommandB2AAE22SAXAEAVComm
 		SYMCALL(VA, MSSYM_MD5_8574de98358ff66b5a913417f44dd706, handle, &c, ct.c_str(), level, f1, f2);
 	}
 	return original(handle);
+}
+
+// 脚本引擎登记
+THook2(_CS_ONSCRIPTENGINEINIT, bool, MSSYM_B1QE10initializeB1AE12ScriptEngineB2AAA4UEAAB1UA3NXZ, VA jse) {
+	bool r = original(jse);
+	if (r) {
+		p_jsen = jse;
+	}
+	return r;
 }
 
 // 服务器后台输入指令
@@ -2478,6 +2557,29 @@ static bool _CS_ONSCRIPTENGINECMD(VA a1, VA jscmd) {
 static VA ONSCRIPTENGINECMD_SYMS[] = { 1, MSSYM_B1QE14executeCommandB1AE27MinecraftServerScriptEngineB2AAA4UEAAB1UE18NAEBUScriptCommandB3AAAA1Z ,
 	(VA)_CS_ONSCRIPTENGINECMD };
 
+// 系统计分板初始化
+static VA _CS_ONSCOREBOARDINIT(VA a1, VA a2, VA a3) {
+	Events e;
+	e.type = EventType::onScoreboardInit;
+	e.mode = ActMode::BEFORE;
+	e.result = 0;
+	ScoreboardInitEvent pe;
+	pe.scptr = a1;
+	e.data = &pe;
+	bool ret = runCscode(ActEvent.ONSCOREBOARDINIT, ActMode::BEFORE, e);
+	if (ret) {
+		auto original = (VA(*)(VA, VA, VA)) * getOriginalData(_CS_ONSCOREBOARDINIT);
+		VA r = original(a1, a2, a3);
+		e.result = ret;
+		e.mode = ActMode::AFTER;
+		runCscode(ActEvent.ONSCOREBOARDINIT, ActMode::AFTER, e);
+		return r;
+	}
+	return 0;
+}
+static VA ONSCOREBOARDINIT_SYMS[] = { 1, MSSYM_B2QQE170ServerScoreboardB2AAA4QEAAB1AE24VCommandSoftEnumRegistryB2AAE16PEAVLevelStorageB3AAAA1Z,
+	(VA)_CS_ONSCOREBOARDINIT };
+
 // 初始化各类hook的事件绑定，基于构造函数
 static struct EventSymsInit{
 public:
@@ -2519,6 +2621,7 @@ public:
 		sListens[ActEvent.ONSCRIPTENGINEINIT] = ONSCRIPTENGINEINIT_SYMS;
 		sListens[ActEvent.ONSCRIPTENGINELOG] = ONSCRIPTENGINELOG_SYMS;
 		sListens[ActEvent.ONSCRIPTENGINECMD] = ONSCRIPTENGINECMD_SYMS;
+		sListens[ActEvent.ONSCOREBOARDINIT] = ONSCOREBOARDINIT_SYMS;
 #if (COMMERCIAL)
 		isListened[ActEvent.ONMOBHURT] = true;
 		isListened[ActEvent.ONBLOCKCMD] = true;
