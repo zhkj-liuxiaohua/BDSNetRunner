@@ -39,6 +39,8 @@ namespace CSR
 
 		// 注册事件回调管理，避免回收
 		private Dictionary<string, ArrayList> callbks = new Dictionary<string, ArrayList>();
+		// 发送tick方法管理，避免回收
+		private Dictionary<object, object> ticks = new Dictionary<object, object>();
 
 		private IntPtr hLib;
         public MCCSAPI(String DLLPath, string ver, bool commercial)
@@ -74,6 +76,12 @@ namespace CSR
         public delegate bool EventCab(Events e);
         private delegate bool ADDACTEVENTFUNC(string key, EventCab cb);
         private ADDACTEVENTFUNC caddBeforeActEvent, caddAfterActEvent, cremoveBeforeAct, cremoveAfterAct;
+		/// <summary>
+		/// 置入tick所需的无参方法
+		/// </summary>
+		public delegate void TickFunc();
+		private delegate void POSTTICK(TickFunc f);
+		private POSTTICK cpostTick;
 		private delegate bool CSHOOKFUNC(int rva, IntPtr hook, out IntPtr org);
 		private CSHOOKFUNC ccshook;
 		private delegate bool CSUNHOOKFUNC(IntPtr hook, out IntPtr org);
@@ -247,6 +255,7 @@ namespace CSR
 			csetServerMotd = Invoke<SETSERVERMOTD>("setServerMotd");
 			cgetscoreById = Invoke<GETSCOREBYID>("getscoreById");
 			csetscoreById = Invoke<SETSCOREBYID>("setscoreById");
+			cpostTick = Invoke<POSTTICK>("postTick");
 			ccshook = Invoke<CSHOOKFUNC>("cshook");
 			ccsunhook = Invoke<CSUNHOOKFUNC>("csunhook");
 			cdlsym = Invoke<DLSYMFUNC>("dlsym");
@@ -379,7 +388,26 @@ namespace CSR
 			}
 			return r;
 		}
-		
+
+		/// <summary>
+		/// 发送一个方法至tick
+		/// </summary>
+		/// <param name="f">待置入下一tick的无参方法</param>
+		public void postTick(TickFunc f)
+        {
+			if (cpostTick != null)
+            {
+				TickFunc tmp = null;
+				tmp = () =>
+				{
+					f();
+					ticks.Remove(tmp);
+				};
+				ticks[tmp] = f;
+				cpostTick(tmp);
+            }
+        }
+
 		/// <summary>
 		/// 设置共享数据（指针）<br/>
 		/// 注：会替换掉旧数据

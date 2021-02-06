@@ -70,6 +70,8 @@ MCCSAPI void JSEfireCustomEvent(const char*, const char*, void(*)(bool));
 MCCSAPI int getscoreById(__int64, const char*);
 // 设置离线计分板值
 MCCSAPI int setscoreById(__int64, const char*, int);
+// 发送一个方法至tick
+MCCSAPI void postTick(void(*)());
 
 // 从此处获取额外API
 MCCSAPI void* getExtraAPI(const char*);

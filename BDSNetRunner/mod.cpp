@@ -226,6 +226,10 @@ bool removeAfterActListener(const char* key, bool(*func)(Events)) {
 	return removeListener(key, ActMode::AFTER, func);
 }
 
+void postTick(void(*m)()) {
+	safeTick(m);
+}
+
 static std::unordered_map<std::string, void*> shareData;
 
 void setSharePtr(const char* key, void* func)

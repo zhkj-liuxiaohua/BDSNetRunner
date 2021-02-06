@@ -557,6 +557,9 @@ namespace CSRDemo
                 {
 					Console.WriteLine("系统计分板已初始化成功，addr={0}",
 						e.scptr);
+					api.postTick(() => {
+						api.runcmd("list");
+					});
 					//if (api.COMMERCIAL){   // 测试计分板读取和写入任务
 					//	string asc = api.getAllScore();
 					//	Console.WriteLine("[TEST]scoreboard={0}", asc);
