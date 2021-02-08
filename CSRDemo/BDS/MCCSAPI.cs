@@ -155,6 +155,8 @@ namespace CSR
 		private TRANSFERSERVERFUNC ctransferserver;
 		private delegate bool TELEPORTFUNC(string uuid, float x, float y, float z, int did);
 		private TELEPORTFUNC cteleport;
+		private delegate Std_String GETMAPCOLORS(int x, int y, int z, int did);
+		private GETMAPCOLORS cgetMapColors;
 		private delegate uint SENDSIMPLEFORMFUNC(string uuid, string title, string content, string buttons);
 		private SENDSIMPLEFORMFUNC csendSimpleForm;
 		private delegate uint SENDMODALFORMFUNC(string uuid, string title, string content, string button1, string button2);
@@ -288,6 +290,7 @@ namespace CSR
 				csetPlayerPermissionAndGametype = ConvertExtraFunc<RENAMEBYUUIDFUNC>("setPlayerPermissionAndGametype");
 				cgetAllScore = ConvertExtraFunc<GETONLINEPLAYERSFUNC>("getAllScore");
 				csetAllScore = ConvertExtraFunc<RUNCMDFUNC>("setAllScore");
+				cgetMapColors = ConvertExtraFunc<GETMAPCOLORS>("getMapColors");
 			}
 			#endregion
 		}
@@ -927,6 +930,21 @@ namespace CSR
 			return (csetPlayerPermissionAndGametype != null) && csetPlayerPermissionAndGametype(uuid, newModes);
 		}
 
+		/// <summary>
+		/// 获取一个指定位置处区块的颜色数据<br/>
+		/// 注：如区块未处于活动状态，可能返回无效颜色数据
+		/// </summary>
+		/// <param name="x"></param>
+		/// <param name="y"></param>
+		/// <param name="z"></param>
+		/// <param name="did">待读取的维度</param>
+		/// <returns>区块位置及颜色数据内容</returns>
+		public string getMapColors(int x, int y, int z, int did)
+        {
+			return (cgetMapColors != null) ? StrTool.c_str(cgetMapColors(x, y, z, did)) :
+				string.Empty;
+        }
+
 		// 社区贡献
 
 		/// <summary>
@@ -986,6 +1004,7 @@ namespace CSR
 			return (csetscoreById != null) ? csetscoreById(id, objname, count) :
 				0;
 		}
+
 		// 底层相关
 
 		/// <summary>
