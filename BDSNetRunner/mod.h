@@ -146,6 +146,12 @@ typedef bool (**setPlayerPermissionAndGametypeFunc)(const char*, const char*);
 typedef std::string(**getAllScoreFunc)();
 // 调用原型：设置所有计分板计分项
 typedef bool (**setAllScoreFunc)(const char*);
+// 调用原型：获取地图所处位置区块颜色数据
+typedef std::string(**getMapColorsFunc)(int, int, int, int);
+// 调用原型：导出地图所有离线玩家数据
+typedef std::string(**exportPlayersDataFunc)();
+// 调用原型：导入玩家数据至地图
+typedef bool(**importPlayersDataFunc)(const char*);
 #endif
 
 // 返回实际RVA对应地址

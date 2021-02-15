@@ -1370,12 +1370,17 @@ public:
 	void* getMcMethod(std::string methodname) {
 		return mcMethods[methodname];
 	}
-} _McMethods;
+};
+
+static std::unique_ptr<McMethods> _McMethods = nullptr;
 
 #pragma endregion
 
 void* mcComponentAPI(const char* method) {
-	return _McMethods.getMcMethod(method);
+	if (_McMethods == nullptr)
+		_McMethods = std::make_unique<McMethods>();
+	return _McMethods == nullptr ? NULL :
+		_McMethods->getMcMethod(std::string(method));
 }
 
 //////////////////////////////// ¾²Ì¬ HOOK ÇøÓò ////////////////////////////////

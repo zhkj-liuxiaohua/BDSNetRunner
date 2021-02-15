@@ -322,4 +322,5 @@ struct MCMETHOD {
 	const std::string PLAYER_ADD_LEVEL = "player.add_level";
 	const std::string PLAYER_GET_SCOREID = "player.get_scoreboardid";
 	const std::string PLAYER_CREATE_SCOREID = "player.create_scoreboardid";
+	const std::string PLAYER_GET_STORAGEID = "player.get_storageid";
 };

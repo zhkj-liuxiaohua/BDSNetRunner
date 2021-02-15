@@ -474,18 +474,6 @@ namespace CSRDemo
                 {
 					Console.WriteLine("计分板 {0} (显示名称：{1}，id：{2})分数改变为 {3}",
 						ae.objectivename, ae.displayname, ae.scoreboardid, ae.score);
-					// 追加改变，由于会重复触发改变事件，故设定停止上限
-					//if (ae.score < 100)
-                    //{
-					//	Console.WriteLine("启动30秒后增加分数任务，请耐心等待测试反馈..");
-					//	// 多线程情况下测试离线计分板id是否有效，等待三十秒
-					//	new Thread(() =>
-					//	{
-					//		Thread.Sleep(30000);
-					//		Console.WriteLine("追加改变增加100，数值变为：" + api.setscoreById(ae.scoreboardid, ae.objectivename, ae.score + 100));
-					//		Console.WriteLine("改变后的分数为：" + api.getscoreById(ae.scoreboardid, ae.objectivename));
-					//	}).Start();
-					//}
                 }
 				return true;
 			});
@@ -557,22 +545,6 @@ namespace CSRDemo
                 {
 					Console.WriteLine("系统计分板已初始化成功，addr={0}",
 						e.scptr);
-					//api.postTick(() => {
-					//	api.runcmd("list");
-					//});
-					//if (api.COMMERCIAL){   // 测试计分板读取和写入任务
-					//	string asc = api.getAllScore();
-					//	Console.WriteLine("[TEST]scoreboard={0}", asc);
-					//	if (!string.IsNullOrEmpty(asc)){
-					//		Console.WriteLine("启动一个延时30秒重置计分板的任务，请耐心等待信息反馈..");
-					//		new Thread(() =>{
-					//			Thread.Sleep(30000);
-					//			if (api.setAllScore(asc)){
-					//				Console.WriteLine("重置任务已发送。");
-					//			}
-					//		}).Start();
-					//	}
-					//}
 				}
 				return true;
 			});

@@ -131,11 +131,11 @@ namespace CSR
 		private delegate void SETCOMMANDDESCRIBEFUNC(string key, string description, CommandPermissionLevel level, byte flag1, byte flag2);
 		private SETCOMMANDDESCRIBEFUNC csetCommandDescribe;
 		private delegate bool RUNCMDFUNC(string cmd);
-		private RUNCMDFUNC cruncmd, cremovePlayerBossBar, cremovePlayerSidebar, csetAllScore;
+		private RUNCMDFUNC cruncmd, cremovePlayerBossBar, cremovePlayerSidebar, csetAllScore, cimportPlayersData;
 		private delegate void LOGOUTFUNC(string cmdout);
 		private LOGOUTFUNC clogout;
 		private delegate Std_String GETONLINEPLAYERSFUNC();
-		private GETONLINEPLAYERSFUNC cgetOnLinePlayers, cgetAllScore;
+		private GETONLINEPLAYERSFUNC cgetOnLinePlayers, cgetAllScore, cexportPlayersData;
 		private delegate Std_String GETSTRUCTUREFUNC(int did, string jsonposa, string jsonposb, bool exent, bool exblk);
 		private GETSTRUCTUREFUNC cgetStructure;
 		private delegate bool SETSTRUCTUREFUNC(string jdata, int did, string jsonposa, byte rot, bool exent, bool exblk);
@@ -291,6 +291,8 @@ namespace CSR
 				cgetAllScore = ConvertExtraFunc<GETONLINEPLAYERSFUNC>("getAllScore");
 				csetAllScore = ConvertExtraFunc<RUNCMDFUNC>("setAllScore");
 				cgetMapColors = ConvertExtraFunc<GETMAPCOLORS>("getMapColors");
+				cexportPlayersData = ConvertExtraFunc<GETONLINEPLAYERSFUNC>("exportPlayersData");
+				cimportPlayersData = ConvertExtraFunc<RUNCMDFUNC>("importPlayersData");
 			}
 			#endregion
 		}
@@ -549,6 +551,25 @@ namespace CSR
         {
 			return (csetAllScore != null) && csetAllScore(jdata);
 		}
+		/// <summary>
+		/// 导出地图所有离线玩家数据<br/>
+		/// 注：调用时机在地图初始化完成之后生效
+		/// </summary>
+		/// <returns></returns>
+		public string exportPlayersData()
+        {
+			return (cexportPlayersData != null) ? StrTool.c_str(cexportPlayersData()) :
+				string.Empty;
+		}
+		/// <summary>
+		/// 导入玩家数据至地图
+		/// </summary>
+		/// <param name="jdata">待导入的玩家信息集json字符串</param>
+		/// <returns>是否导入成功</returns>
+		public bool importPlayersData(string jdata)
+        {
+			return (cimportPlayersData != null) && cimportPlayersData(jdata);
+        }
 
 		/// <summary>
 		/// 重命名一个指定的玩家名<br/>

@@ -582,10 +582,13 @@ namespace CSR
         const string PLAYER_GET_SCOREID = "player.get_scoreboardid";
         const string PLAYER_CREATE_SCOREID = "player.create_scoreboardid";
         const string LEVEL_GETPLFROM_AABB = "level.getplfrom_aabb";
+        #region 非社区内容
+        const string PLAYER_GET_STORAGEID = "player.get_storageid";
+        #endregion
 
         protected delegate bool PADDLEVEL(IntPtr p, int lv);
         protected delegate long PGETSCOREID(IntPtr p);
-        static AGET pgetHotbarContainer;
+        static AGET pgetHotbarContainer, pgetServerStorageID;
         static AGET pgetUuid;
         static AGET pgetIPPort;
         static PADDLEVEL paddLevel;
@@ -606,6 +609,10 @@ namespace CSR
                     pgetScoreboardId = api.ConvertComponentFunc<PGETSCOREID>(PLAYER_GET_SCOREID);
                     pcreateScoreboardId = api.ConvertComponentFunc<PGETSCOREID>(PLAYER_CREATE_SCOREID);
                     pgetplFromAABB = api.ConvertComponentFunc<AGETSFROMAABB>(LEVEL_GETPLFROM_AABB);
+                    if (api.COMMERCIAL)
+                    {   // 非社区内容
+                        pgetServerStorageID = api.ConvertComponentFunc<AGET>(PLAYER_GET_STORAGEID);
+                    }
                     playerApiInited = true;
                 }
                 else
@@ -685,6 +692,16 @@ namespace CSR
             return (ptr != null && ptr != IntPtr.Zero) ?
                 pcreateScoreboardId(ptr) : -1;
         }
+        #region 非社区内容
+        public string StorageID
+        {
+            get
+            {
+                return (ptr != null && ptr != IntPtr.Zero) ?
+                    StrTool.c_str(pgetServerStorageID(ptr)) : string.Empty;
+            }
+        }
+        #endregion
         /// <summary>
         /// 从指定地图位置查询玩家指针列表
         /// </summary>
