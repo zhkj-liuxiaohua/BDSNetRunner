@@ -44,7 +44,7 @@ enum class EventType : UINT16 {
 };
 
 // ¼àÌýÄ£Ê½
-static enum class ActMode : UINT16
+enum class ActMode : UINT16
 {
 	BEFORE = 0,
 	AFTER = 1

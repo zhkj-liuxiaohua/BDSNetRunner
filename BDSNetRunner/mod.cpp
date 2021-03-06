@@ -2,6 +2,7 @@
 #include "THook.h"
 #include <stdio.h>
 #include <iostream>
+#include <shlwapi.h>
 #include "BDS.hpp"
 #include "Component.h"
 #include <thread>
@@ -16,6 +17,7 @@
 #include "commands/commands.h"
 #include "scoreboard/scoreboard.hpp"
 #pragma comment(lib, "mscoree.lib")
+#pragma comment(lib, "Shlwapi.lib")
 
 // 当前插件平台版本号
 static const wchar_t* VERSION = L"1.16.100.4";
@@ -75,7 +77,14 @@ static std::string UTF8ToGBK(const char* strUTF8)
 	if (szGBK) delete[] szGBK;
 	return strTemp;
 }
-
+static std::wstring toGBKString(std::string s) {
+	int len = MultiByteToWideChar(CP_ACP, 0, s.c_str(), (int)s.length(), NULL, 0);
+	WCHAR* w_str = new WCHAR[(size_t)len + 1]{ 0 };
+	MultiByteToWideChar(CP_ACP, 0, s.c_str(), (int)s.length(), w_str, len);
+	auto gbkstr = std::wstring(w_str);
+	delete[] w_str;
+	return gbkstr;
+}
 // GBK 转 UTF-8
 static std::string GBKToUTF8(const char* strGBK)
 {
@@ -93,6 +102,14 @@ static std::string GBKToUTF8(const char* strGBK)
 	delete[]str2;
 	str2 = NULL;
 	return strOutUTF8;
+}
+static std::string toUTF8String(std::wstring s) {
+	int iSize = WideCharToMultiByte(CP_ACP, 0, s.c_str(), -1, NULL, 0, NULL, NULL);
+	char* uc = new char[(size_t)(iSize) * 3 + 1]{ 0 };
+	WideCharToMultiByte(CP_ACP, 0, s.c_str(), -1, uc, iSize, NULL, NULL);
+	auto utf8str = std::string(uc);
+	delete[] uc;
+	return utf8str;
 }
 
 // 自动复制字符
@@ -265,7 +282,7 @@ static std::string toDimenStr(int dimensionId) {
 
 static VA regHandle = 0;
 
-static struct CmdDescriptionFlags {
+struct CmdDescriptionFlags {
 	std::string description;
 	char level;
 	char flag1;
@@ -854,7 +871,7 @@ int getscoreById(__int64 id, const char* objname) {
 		testobj = scoreboard->addObjective(objname, objname);
 		return 0;
 	}
-	__int64 a2[2];
+	__int64 a2[2]{0};
 	__int64 sid[2]{0};
 	sid[0] = id;
 	if (findScoreboardId(id, sid)) {
@@ -1290,7 +1307,7 @@ std::string Player::sgetUuid(Player* p) {
 }
 
 std::string Player::sgetIPPort(Player* p) {
-	char v11[256];
+	char v11[256]{0};
 	char v12[256]{0};
 	VA v4 = *(VA*)(*(VA*)(*(VA*)(p_ServerNetworkHandle + 64) + 32) + 440);
 	auto v5 = GetModuleHandleW(0);
@@ -1331,7 +1348,7 @@ std::vector<VA*>* Player::sgetPlayers(int did, float x1, float y1, float z1, flo
 	return NULL;
 }
 // 类属性相关方法
-static struct McMethods {
+struct McMethods {
 	std::unordered_map<std::string, void*> mcMethods;
 public:
 	// 初始化，装入所有类成员属性
@@ -2667,8 +2684,47 @@ static ICLRRuntimeInfo* pRuntimeInfo = nullptr;
 // 初始化.Net环境
 static void initNetFramework() {
 	SetCurrentDirectoryA(getLocalPath().c_str());
+	std::string plugins = "plugins/";
+	std::string settingdir = plugins + "settings/";		// 固定配置文件目录 - plugins/settings
+	std::string settingpath = settingdir + "csrsetting.ini";	// 固定配置文件 - csrsetting.ini
+	char csrpath[MAX_PATH]{ 0 };
+	std::string path = "";
+	auto len = GetPrivateProfileStringA("CSR", "csrdir", NULL, csrpath, MAX_PATH, settingpath.c_str());
+	if (len < 1) {
+		PR(u8"[CSR] 未能读取Net插件库路径配置文件，使用默认配置[详见" + settingpath + u8"]");
+		path = "CSR";		// 默认路径 - CSR
+		CreateDirectoryA(plugins.c_str(), 0);
+		CreateDirectoryA(settingdir.c_str(), 0);
+		WritePrivateProfileStringA("CSR", "csrdir", "CSR", settingpath.c_str());
+	}
+	else {
+		path = csrpath;
+	}
+	// 此处判断插件库是否存在
+	if (!PathIsDirectoryA(path.c_str())) {
+		PR(u8"[CSR] 未检测到csr插件文件夹 " + path + u8" 存在，请检查配置是否正确[详见" + settingpath + u8"]");
+		return;
+	}
+	std::string pair = path + "\\*.csr.dll";
+	std::vector<std::wstring> csrdlls;
+	WIN32_FIND_DATAA ffd;
+	HANDLE dfh = FindFirstFileA(pair.c_str(), &ffd);
+	if (INVALID_HANDLE_VALUE != dfh) {
+		do
+		{
+			if (!(ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+			{
+				std::string fileName = std::string(path + "\\" + ffd.cFileName);
+				std::wstring w_str = toGBKString(fileName);
+				csrdlls.push_back(w_str);
+			}
+		} while (FindNextFileA(dfh, &ffd) != 0);
+		FindClose(dfh);
+	}
+	if (csrdlls.size() < 1)
+		return;
+	// 此处开始初始化.net framework
 	DWORD dwRet = 0;
-	//wchar_t curDir[256] = { 0 };
 	HRESULT hr = CLRCreateInstance(CLSID_CLRMetaHost, IID_ICLRMetaHost, (LPVOID*)&pMetaHost);
 	hr = pMetaHost->GetRuntime(L"v4.0.30319", IID_PPV_ARGS(&pRuntimeInfo));
 	if (!FAILED(hr))
@@ -2680,36 +2736,18 @@ static void initNetFramework() {
 		if (FAILED(hr))
 			return;
 		std::wstring curDllandVer = GetDllPathandVersion();	// 获取平台路径和版本，逗号分隔
-		// 局部方法，加载所有csr插件
-		{
-			std::string path = "CSR";	// 固定目录 - CSR
-			std::string pair = path + "\\*.csr.dll";
-			WIN32_FIND_DATAA ffd;
-			HANDLE dfh = FindFirstFileA(pair.c_str(), &ffd);
-			if (INVALID_HANDLE_VALUE != dfh) {
-				do
-				{
-					if (!(ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
-					{
-						std::string fileName = std::string(path + "\\" + ffd.cFileName);
-						int len = MultiByteToWideChar(CP_ACP, 0, fileName.c_str(), (int)fileName.length(), NULL, 0);
-						LPWSTR w_str = new WCHAR[(size_t)len + 1];
-						w_str[len] = L'\0';
-						MultiByteToWideChar(CP_ACP, 0, fileName.c_str(), (int)fileName.length(), w_str, len);
-						LPCWSTR dllName = w_str;
-						std::wcout << L"[CSR] load " << dllName << std::endl;
-						hr = pRuntimeHost->ExecuteInDefaultAppDomain(dllName,	// 插件实际路径
-							L"CSR.Plugin",										// 插件通用类名
-							L"onServerStart",									// 插件通用初始化接口
-							curDllandVer.c_str(),								// 回传lib和版本号
-							&dwRet);
-						if (FAILED(hr)) {
-							wprintf(L"[File] %s api load failed.\n", dllName);
-							continue;
-						}
-					}
-				} while (FindNextFileA(dfh, &ffd) != 0);
-				FindClose(dfh);
+		// 加载所有csr插件
+		for (auto& w_str : csrdlls) {
+			LPCWSTR dllName = w_str.c_str();
+			std::wcout << L"[CSR] load " << dllName << std::endl;
+			hr = pRuntimeHost->ExecuteInDefaultAppDomain(dllName,	// 插件实际路径
+				L"CSR.Plugin",										// 插件通用类名
+				L"onServerStart",									// 插件通用初始化接口
+				curDllandVer.c_str(),								// 回传lib和版本号
+				&dwRet);
+			if (FAILED(hr)) {
+				wprintf(L"[File] %s api load failed.\n", dllName);
+				continue;
 			}
 		}
 	}
