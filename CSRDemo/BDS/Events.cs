@@ -1162,6 +1162,7 @@ namespace CSR
 		protected int mentityid;
 		protected int mdimensionid;
 		protected IntPtr mnpc;
+		protected IntPtr mtrigger;
 		/// <summary>
 		/// NPC名字
 		/// </summary>
@@ -1198,6 +1199,10 @@ namespace CSR
 		/// NPC指针
 		/// </summary>
 		public IntPtr npcPtr { get { return mnpc; } }
+		/// <summary>
+		/// 触发者（玩家）指针
+		/// </summary>
+		public IntPtr triggerPtr { get { return mtrigger; } }
 		public static new NpcCmdEvent getFrom(Events e)
 		{
 			var le = createHead(e, EventType.onNpcCmd, typeof(NpcCmdEvent)) as NpcCmdEvent;
@@ -1213,6 +1218,7 @@ namespace CSR
 			le.mentityid = Marshal.ReadInt32(s, 48);
 			le.mdimensionid = Marshal.ReadInt32(s, 52);
 			le.mnpc = Marshal.ReadIntPtr(s, 56);
+			le.mtrigger = Marshal.ReadIntPtr(s, 64);
 			return le;
 		}
 	}

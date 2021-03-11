@@ -461,6 +461,7 @@ struct NpcCmdEvent {
 	int entityid;		// NPC实体标识ID
 	int dimensionid;	// NPC所处维度ID
 	void* pnpc;			// 附加组件，npc指针
+	void* ptrigger;		// 附加组件，触发者player指针
 public:
 	NpcCmdEvent() {
 		memset(this, 0, sizeof(NpcCmdEvent));
