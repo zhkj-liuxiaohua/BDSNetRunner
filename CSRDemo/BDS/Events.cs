@@ -265,10 +265,10 @@ namespace CSR
 
 	[StructLayoutAttribute(LayoutKind.Sequential)]
 	public struct Std_String {
-		public IntPtr data;
-		public ulong sd;
-		public ulong len;
-		public ulong uk3;
+		public IntPtr data;			// 数据区
+		public ulong sd;			// 短数据复用区
+		public ulong len;			// 字符串长度
+		public ulong alloclen;		// 实占空间
 	}
 
 
@@ -301,7 +301,7 @@ namespace CSR
 			{
 				if (s.len < 1)
 					return String.Empty;
-				if (s.len < 16)
+				if (s.alloclen < 16)
 				{
 					byte[] c = BitConverter.GetBytes((ulong)s.data);
 					byte[] d = BitConverter.GetBytes(s.sd);
