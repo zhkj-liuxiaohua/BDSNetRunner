@@ -66,6 +66,8 @@ MCCSAPI bool sendText(const char*, const char*);
 MCCSAPI void JSErunScript(const char*, void(*)(bool));
 // 请求发送一个自定义行为包脚本事件广播
 MCCSAPI void JSEfireCustomEvent(const char*, const char*, void(*)(bool));
+// 获取物品原始标识字符
+MCCSAPI std::string getItemRawname(int);
 // 获取离线计分板值
 MCCSAPI int getscoreById(__int64, const char*);
 // 设置离线计分板值

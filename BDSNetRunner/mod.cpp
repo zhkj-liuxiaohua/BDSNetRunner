@@ -373,6 +373,17 @@ std::string getOnLinePlayers() {
 	return rt.isNull() ? "" : std::string(rt.toStyledString().c_str());
 }
 
+// 函数名：getItemRawname
+// 功能：获取物品原始标识字符
+// 参数个数：1个
+// 参数类型：整型
+// 参数详解：id - 物品id
+// 返回值：物品名称
+std::string getItemRawname(int id) {
+	std::string rawname = Item::getRawNameFromId(id);
+	return rawname;
+}
+
 #if MODULE_KENGWANG
 // 函数名：setServerMotd
 // 功能：设置服务器的显示名信息

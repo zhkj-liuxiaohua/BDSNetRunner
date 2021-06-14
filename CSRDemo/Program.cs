@@ -158,7 +158,7 @@ namespace CSRDemo
 				var ue = BaseEvent.getFrom(x) as UseItemEvent;
 				if (ue != null && ue.RESULT) {
 					Console.WriteLine("玩家 {0} 对 {1} 的 ({2}, {3}, {4}) 处的 {5} 方块" +
-						"操作了 {6} 物品。", ue.playername, ue.dimension, ue.position.x, ue.position.y, ue.position.z, ue.blockname, ue.itemname);
+						"操作了 {6} 物品，类型{7}。", ue.playername, ue.dimension, ue.position.x, ue.position.y, ue.position.z, ue.blockname, ue.itemname, api.getItemRawname(ue.itemid));
 				}
 				return true;
 			});

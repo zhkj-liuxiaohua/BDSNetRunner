@@ -407,6 +407,16 @@ struct Player : Mob {
 #pragma region Items 定义物品结构体
 
 struct Item {
+	// 转换id为原始标识字符
+	static std::string getRawNameFromId(int id) {
+		VA* it;
+		SYMCALL(VA, MSSYM_B1QA7getItemB1AE12ItemRegistryB2AAA2SAB1QA2AVB2QDA7WeakPtrB1AA5VItemB4AAAAA1FB1AA1Z, &it, id);
+		if (it && *it) {
+			return *SYMCALL(std::string*, MSSYM_MD5_2f9d68ca736b0da0c26f063f568898bc,	// Item::getRawNameId
+				*it);
+		}
+		return "unknow";
+	}
 };
 
 struct ItemStackBase {

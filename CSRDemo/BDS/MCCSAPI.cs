@@ -173,6 +173,8 @@ namespace CSR
 		private SETSCOREBOARDVALUEFUNC csetscoreboardValue;
 		private delegate bool SETSERVERMOTD(string motd, bool isShow);
 		private SETSERVERMOTD csetServerMotd;
+		private delegate Std_String GETITEMRAWNAME(int id);
+		private GETITEMRAWNAME cgetItemRawname;
 		/// <summary>
 		/// 脚本引擎执行功能结果回调
 		/// </summary>
@@ -258,6 +260,7 @@ namespace CSR
 			cgetscoreById = Invoke<GETSCOREBYID>("getscoreById");
 			csetscoreById = Invoke<SETSCOREBYID>("setscoreById");
 			cpostTick = Invoke<POSTTICK>("postTick");
+			cgetItemRawname = Invoke<GETITEMRAWNAME>("getItemRawname");
 			ccshook = Invoke<CSHOOKFUNC>("cshook");
 			ccsunhook = Invoke<CSUNHOOKFUNC>("csunhook");
 			cdlsym = Invoke<DLSYMFUNC>("dlsym");
@@ -1025,7 +1028,16 @@ namespace CSR
 			return (csetscoreById != null) ? csetscoreById(id, objname, count) :
 				0;
 		}
-
+		/// <summary>
+		/// 获取物品原始标识字符
+		/// </summary>
+		/// <param name="id">物品id</param>
+		/// <returns>物品原始标识字符</returns>
+		public string getItemRawname(int id)
+        {
+			return (cgetItemRawname != null) ?  StrTool.c_str(cgetItemRawname(id)) :
+				"unknow";
+		}
 		// 底层相关
 
 		/// <summary>
