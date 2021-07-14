@@ -126,9 +126,9 @@ namespace CSR
 		}
 		public enum CommandCheatFlag : byte {
 			Cheat = 0,
-			NotCheat = 0x40
+			NotCheat = 0x80
 		}
-		private delegate void SETCOMMANDDESCRIBEFUNC(string key, string description, CommandPermissionLevel level, byte flag1, byte flag2);
+		private delegate void SETCOMMANDDESCRIBEFUNC(string key, string description, CommandPermissionLevel level, short flag1, short flag2);
 		private SETCOMMANDDESCRIBEFUNC csetCommandDescribe;
 		private delegate bool RUNCMDFUNC(string cmd);
 		private RUNCMDFUNC cruncmd, cremovePlayerBossBar, cremovePlayerSidebar, csetAllScore, cimportPlayersData;
@@ -453,7 +453,7 @@ namespace CSR
 		/// <param name="level">执行要求等级</param>
 		/// <param name="flag1">命令类型1</param>
 		/// <param name="flag2">命令类型2</param>
-		public void setCommandDescribeEx(string key, string description, CommandPermissionLevel level, byte flag1, byte flag2) {
+		public void setCommandDescribeEx(string key, string description, CommandPermissionLevel level, short flag1, short flag2) {
 			if (csetCommandDescribe != null)
 				csetCommandDescribe(key, description, level, flag1, flag2);
 		}
@@ -463,7 +463,7 @@ namespace CSR
 		/// <param name="key">命令</param>
 		/// <param name="description">描述</param>
 		public void setCommandDescribe(string key, string description) {
-			setCommandDescribeEx(key, description, CommandPermissionLevel.Any, (byte)CommandCheatFlag.NotCheat, (byte)CommandVisibilityFlag.Visible);
+			setCommandDescribeEx(key, description, CommandPermissionLevel.Any, (short)CommandCheatFlag.NotCheat, (short)CommandVisibilityFlag.Visible);
 		}
 		
 		/// <summary>
