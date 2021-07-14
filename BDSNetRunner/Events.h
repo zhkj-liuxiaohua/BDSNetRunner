@@ -530,6 +530,7 @@ struct AttackEvent : PlayerEvent
 	Vec3 actorpos;			// 被攻击实体所处位置
 	void* pattacker;		// 附加组件，玩家指针
 	void* pattackedentity;	// 附加组件，被攻击实体指针
+	int damagecause;		// 攻击伤害类型
 public:
 	AttackEvent() {
 		memset(this, 0, sizeof(AttackEvent));

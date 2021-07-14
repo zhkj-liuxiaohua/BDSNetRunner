@@ -411,7 +411,8 @@ namespace CSRDemo
 				AttackEvent ae = BaseEvent.getFrom(x) as AttackEvent;
 				if (ae != null) {
 					string str = "玩家 " + ae.playername + " 在 (" + ae.XYZ.x.ToString("F2") + "," +
-						ae.XYZ.y.ToString("F2") + "," + ae.XYZ.z.ToString("F2") + ") 处攻击了 " + ae.actortype + " 。";
+						ae.XYZ.y.ToString("F2") + "," + ae.XYZ.z.ToString("F2") + ") 处攻击了 " + ae.actortype + "，类型=" + 
+						ae.dmcase + "。";
 					Console.WriteLine(str);
 					// 社区api测试
 					api.setServerMotd(ae.playername + "发动了攻击", true);
